@@ -15,6 +15,9 @@ import uuid
 import httpx
 from datetime import datetime, timezone, timedelta
 import chess
+import asyncio
+import time as _time
+from pymongo.errors import DuplicateKeyError
 
 from chess_engine import get_best_move, get_hint, CURATED_PUZZLES, evaluate_board
 
@@ -29,6 +32,30 @@ db = client[db_name]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'chess_arena_secret_luxury_key_2025')
 JWT_ALGORITHM = "HS256"
+
+# --- League / Rewards configuration ---
+ADMIN_EMAILS = {"hackerabcd001@gmail.com"}
+LEAGUE_DURATION_DAYS = 3
+LEAGUE_MIN_PLAYERS = 200
+LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
+PRIZE_TABLE = [
+    {"rank": 1, "prize": 500},
+    {"rank": 2, "prize": 300},
+    {"rank": 3, "prize": 200},
+]
+
+# Simple in-memory rate limiter (best-effort, single-process)
+_rate_buckets: Dict[str, List[float]] = {}
+
+def rate_limit(key: str, max_calls: int, window_seconds: int):
+    now = _time.time()
+    cutoff = now - window_seconds
+    bucket = _rate_buckets.get(key, [])
+    bucket = [t for t in bucket if t >= cutoff]
+    if len(bucket) >= max_calls:
+        raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
+    bucket.append(now)
+    _rate_buckets[key] = bucket
 
 # Create the main app without a prefix
 app = FastAPI(title="Chess Arena API")
@@ -77,6 +104,18 @@ async def get_current_user_optional(authorization: Optional[str] = Header(None))
         return user
     except Exception:
         return None
+
+async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Auth-required dependency. Reuses the same token logic as optional variant."""
+    user = await get_current_user_optional(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+async def require_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    if (current_user.get("email") or "").lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 
 # --- Pydantic Models ---
 class UserRegister(BaseModel):
@@ -142,6 +181,30 @@ class CompletePuzzleRequest(BaseModel):
 class SendChatRequest(BaseModel):
     text: str
 
+# --- League / Wallet / KYC Models ---
+class KYCSubmitRequest(BaseModel):
+    full_name: str
+    pan_number: str
+    id_photo_base64: str  # base64-encoded image string
+
+class WithdrawRequest(BaseModel):
+    amount: Optional[float] = None  # defaults to full redeemable balance
+    method: str  # 'upi' or 'bank'
+    upi_id: Optional[str] = None
+    account_number: Optional[str] = None
+    ifsc: Optional[str] = None
+    account_name: Optional[str] = None
+
+class AdminKYCAction(BaseModel):
+    user_id: str
+    action: str  # 'verify' or 'reject'
+    note: Optional[str] = None
+
+class AdminWithdrawAction(BaseModel):
+    withdrawal_id: str
+    action: str  # 'approve' or 'reject'
+    note: Optional[str] = None
+
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
 async def init_db():
@@ -152,6 +215,20 @@ async def init_db():
         await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
     except Exception as e:
         logging.error(f"Error creating session indexes: {e}")
+    try:
+        # Indexes for League / Rewards system
+        await db.league_participants.create_index([("league_id", 1), ("user_id", 1)], unique=True)
+        await db.match_point_logs.create_index("match_id", unique=True)
+        await db.wallets.create_index("user_id", unique=True)
+        await db.leagues.create_index("status")
+    except Exception as e:
+        logging.error(f"Error creating league indexes: {e}")
+    try:
+        # Ensure there is always an active league and start the auto-rotation scheduler
+        await ensure_active_league()
+        asyncio.create_task(league_scheduler())
+    except Exception as e:
+        logging.error(f"Error starting league scheduler: {e}")
     try:
         # Seed default test account: chessplayer@gmail.com / password123
         demo_user = await db.users.find_one({"email": "chessplayer@gmail.com"})
@@ -660,10 +737,40 @@ async def make_room_move(room_code: str, req: MakeRoomMoveRequest):
         )
         
         updated = await db.rooms.find_one({"room_code": room_code.upper()}, {"_id": 0})
+        # Award league points strictly server-side when the game concludes
+        if updated and updated.get("status") == "completed":
+            await award_league_points(updated)
         return updated
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Move error in room {room_code}: {e}")
         raise HTTPException(status_code=400, detail="Invalid move execution")
+
+# --- Resign an online room game (server-side result) ---
+@api_router.post("/online/rooms/{room_code}/resign")
+async def resign_room(room_code: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+    room = await db.rooms.find_one({"room_code": room_code.upper()})
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if room.get("status") == "completed":
+        return await db.rooms.find_one({"room_code": room_code.upper()}, {"_id": 0})
+
+    uid = current_user.get("id")
+    white = room.get("white_player") or {}
+    black = room.get("black_player") or {}
+    if uid not in [white.get("id"), black.get("id")]:
+        raise HTTPException(status_code=403, detail="You are not a player in this game")
+
+    winner = "black" if uid == white.get("id") else "white"
+    await db.rooms.update_one(
+        {"room_code": room_code.upper()},
+        {"$set": {"status": "completed", "winner": winner, "end_reason": "resignation"}},
+    )
+    updated = await db.rooms.find_one({"room_code": room_code.upper()}, {"_id": 0})
+    if updated:
+        await award_league_points(updated)
+    return updated
 
 # --- In-Game Chat (scoped to a single match room) ---
 @api_router.post("/online/rooms/{room_code}/chat")
