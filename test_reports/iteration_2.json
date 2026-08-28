@@ -1,0 +1,35 @@
+{
+  "summary": "Google OAuth bug-fix verification PASSED. Backend: 25/25 pytest tests pass (added 4 new session-exchange tests). POST /api/auth/session returns 401 for invalid session_id (verified upstream Emergent OAuth call rejects), 422 for missing field, and 401 for empty string. Verified DB is NOT polluted by invalid session attempts (user_sessions=0, google users=0 after test run). JWT path in get_current_user_optional still works (demo login + guest JWT both authenticate). Guest login flow (POST /api/auth/guest) still returns is_guest=true and guest_ prefixed id. Frontend (390x844 mobile viewport): auto demo-login on fresh load works (POST /api/auth/login), Profile tab -> Logout navigates to AuthScreen, 'Continue with Google' button triggers a full-page navigation to auth.emergentagent.com (confirmed via route intercept matching `**/auth.emergentagent.com/**` which aborted the navigation to chrome-error://; NO /api/auth/guest call was made when clicking the button — this is the primary bug fix). 'Play as Guest' button remains present on AuthScreen. Deprecated packages detected: NONE. SafeAreaView issues detected: NONE.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global", "issues": ["Existing React Native Web warnings (non-blocking): 'shadow*' style props are deprecated (use boxShadow); 'props.pointerEvents is deprecated' (use style.pointerEvents). Same as iteration_1."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_chess_arena.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "No action items required for the bug fix — it is verified working.",
+    "Carry-over from iteration_1: still no testID attributes on AuthScreen (googleBtn, guestBtn, submitBtn, tabs, TextInputs). Would make regression tests less coordinate/text dependent. Suggested testIDs: 'auth-google-btn', 'auth-guest-btn', 'auth-submit-btn', 'auth-email-input', 'auth-password-input', 'auth-tab-login', 'auth-tab-register'.",
+    "Carry-over: replace shadow* style props with boxShadow to silence deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py POST /api/auth/session: correctly rejects invalid session_ids (upstream call returns non-200 -> 401). httpx timeout=15s is reasonable; connection failure raises 401 with generic message which is fine.",
+    "server.py get_current_user_optional: tries JWT first, then session_token — correct order because JWT decode fails fast for opaque session tokens.",
+    "AuthContext.tsx googleLogin (web): does window.location.href full-page navigation to https://auth.emergentagent.com/?redirect=... — matches Emergent Google OAuth playbook exactly. session_id is processed in loadStoredSession BEFORE autoDemoLogin (correct ordering).",
+    "AuthContext.tsx exchangeSession: uses processedSessionIds ref to prevent double-exchange on React strict-mode double-mount. Good defensive pattern.",
+    "AuthContext.tsx: Google session_token is stored via SecureStore on native / localStorage on web, and JWT tokens continue to use AsyncStorage — two separate storage layers is intentional and correct. Logout clears both."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chess_arena.py (added 4 new tests: test_session_exchange_invalid_id_returns_401, test_session_exchange_missing_field_returns_422, test_session_exchange_empty_string_returns_401, test_jwt_still_works_after_session_helper_extension)",
+    "/app/test_reports/iteration_2.json (new)"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% for bug-fix verification (auto-demo-login + logout + Google button redirect + no /api/auth/guest side-effect)"},
+  "seed_data_creation": "None new. Backend still auto-seeds demo user + 4 leaderboard bots. Previous TEST_ users from iteration_1 remain in DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests with: `python -m pytest /app/backend/tests/test_chess_arena.py -n 0 -v --junitxml=/app/test_reports/pytest/pytest_results.xml` (xdist breaks pytest.demo_token shared state). Frontend testing: page.set_viewport_size(390x844); auto-demo-login is intentional (uses chessplayer@gmail.com/password123) so to reach AuthScreen use `localStorage.clear() -> reload` or click Profile tab -> Logout. To verify the Google redirect without completing real OAuth, add `await page.route('**/auth.emergentagent.com/**', lambda route: route.abort())` before clicking, then use `page.expect_navigation(url=re.compile(r'auth\\.emergentagent\\.com'), wait_until='commit')` — the resulting chrome-error:// URL confirms the redirect target matched. Track requests to `/api/auth/guest` and assert 0 calls when Google button is clicked.",
+  "rca_of_issue": "Original bug: 'Continue with Google' button called guestLogin('Google_Player') producing a random guest identity instead of real Google OAuth. Fix applied by main agent (verified): (a) AuthContext.googleLogin now performs window.location.href='https://auth.emergentagent.com/?redirect=...' on web and WebBrowser.openAuthSessionAsync on native; (b) session_id extracted from callback URL is exchanged via POST /api/auth/session which calls Emergent upstream demobackend.emergentagent.com/auth/v1/env/oauth/session-data with X-Session-ID; (c) users upserted by email with auth_provider=google, 7-day session_token stored in user_sessions with TTL index. Verified: 4 new pytest cases + Playwright navigation intercept confirm no /api/auth/guest is called when Google button is tapped and the redirect target is auth.emergentagent.com."
+}
