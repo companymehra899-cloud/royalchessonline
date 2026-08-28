@@ -101,3 +101,9 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Session: Google OAuth Fix (June 2026)
+- ISSUE: "Continue with Google" was fake — it called guestLogin('Google_Player') creating a random guest identity.
+- FIX: Implemented real Emergent-managed Google OAuth:
+  - Backend: POST /api/auth/session exchanges session_id (via X-Session-ID header to demobackend.emergentagent.com) for 7-day session_token; upserts user by email storing verified email, google_name, google_id (provider ID), picture; stores session in user_sessions with TTL index. get_current_user_optional now accepts BOTH legacy JWT tokens and Google session tokens as Bearer.
+  - Frontend AuthContext: googleLogin() opens auth.emergentagent.com (window.location.href on web, WebBrowser.openAuthSessionAsync on mobile with url listener + getInitialURL fallbacks), extracts session_id from hash/query via regex, POSTs to /api/auth/session, stores session_token in SecureStore (mobile)/localStorage (web). session_id in callback URL is processed FIRST on mount, before autoDemoLogin. Guest mode (POST /api/auth/guest) unchanged and fully separate.
+- Note: App auto-logs-in demo account (chessplayer@gmail.com) on fresh load. To reach AuthScreen, logout from Profile screen first.

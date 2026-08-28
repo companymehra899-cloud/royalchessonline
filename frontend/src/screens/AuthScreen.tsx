@@ -21,7 +21,7 @@ interface AuthScreenProps {
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
-  const { login, register, guestLogin } = useAuth();
+  const { login, register, guestLogin, googleLogin } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('chessplayer@gmail.com');
   const [password, setPassword] = useState('password123');
@@ -76,10 +76,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
   const handleGoogleAuth = async () => {
     setLoading(true);
-    // Emergent managed instant authentication
+    setErrorMsg('');
     try {
-      await guestLogin('Google_Player');
-      if (onSuccess) onSuccess();
+      const res = await googleLogin();
+      if (!res.success) {
+        setErrorMsg(res.error || 'Google login failed');
+      } else if (onSuccess) {
+        onSuccess();
+      }
     } catch (e) {
       setErrorMsg('Google login failed');
     } finally {

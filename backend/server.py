@@ -12,6 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
+import httpx
 from datetime import datetime, timezone, timedelta
 import chess
 
@@ -49,13 +50,30 @@ def create_token(user_id: str, email: str) -> str:
 async def get_current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[Dict[str, Any]]:
     if not authorization:
         return None
+    token = authorization.replace("Bearer ", "").strip()
+    # 1) Try JWT (email/password & guest logins)
     try:
-        token = authorization.replace("Bearer ", "").strip()
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
-        if not user_id:
+        if user_id:
+            user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+            if user:
+                return user
+    except Exception:
+        pass
+    # 2) Try Google OAuth session token (user_sessions collection)
+    try:
+        session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+        if not session:
             return None
-        user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+        expires_at = session.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at and expires_at < datetime.now(timezone.utc):
+            return None
+        user = await db.users.find_one({"id": session["user_id"]}, {"_id": 0, "password_hash": 0})
         return user
     except Exception:
         return None
@@ -72,6 +90,9 @@ class UserLogin(BaseModel):
 
 class GuestLogin(BaseModel):
     username: Optional[str] = None
+
+class SessionExchangeRequest(BaseModel):
+    session_id: str
 
 class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
@@ -121,6 +142,13 @@ class CompletePuzzleRequest(BaseModel):
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
 async def init_db():
+    try:
+        # Indexes for Google OAuth sessions
+        await db.user_sessions.create_index("session_token", unique=True)
+        await db.user_sessions.create_index("user_id")
+        await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
+    except Exception as e:
+        logging.error(f"Error creating session indexes: {e}")
     try:
         # Seed default test account: chessplayer@gmail.com / password123
         demo_user = await db.users.find_one({"email": "chessplayer@gmail.com"})
@@ -251,6 +279,87 @@ async def guest_login(req: GuestLogin):
     token = create_token(guest_id, user_doc["email"])
     user_response = {k: v for k, v in user_doc.items() if k not in ["_id", "password_hash"]}
     return {"token": token, "user": user_response}
+
+@api_router.post("/auth/session")
+async def exchange_google_session(req: SessionExchangeRequest):
+    """Exchange Emergent Google OAuth session_id for a 7-day session_token."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": req.session_id},
+            )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Could not verify Google session")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired Google session")
+
+    data = resp.json()
+    email = (data.get("email") or "").lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Google account has no email")
+
+    google_name = data.get("name") or email.split("@")[0].capitalize()
+    google_picture = data.get("picture")
+    provider_id = data.get("id")
+    session_token = data.get("session_token")
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Invalid Google session data")
+
+    # Upsert user by email — never create duplicates
+    existing = await db.users.find_one({"email": email}, {"_id": 0, "password_hash": 0})
+    if existing:
+        user_id = existing["id"]
+        google_fields = {
+            "auth_provider": "google",
+            "google_id": provider_id,
+            "google_name": google_name,
+        }
+        if google_picture:
+            google_fields["picture"] = google_picture
+        await db.users.update_one({"id": user_id}, {"$set": google_fields})
+        user_response = {**existing, **google_fields}
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        now_str = datetime.now(timezone.utc).strftime("%B %Y")
+        user_doc = {
+            "id": user_id,
+            "email": email,
+            "username": google_name,
+            "auth_provider": "google",
+            "google_id": provider_id,
+            "google_name": google_name,
+            "picture": google_picture,
+            "rating": 1200,
+            "best_rating": 1200,
+            "games_played": 0,
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "puzzles_solved": 0,
+            "avatar_id": "knight_gold",
+            "board_theme": "wood",
+            "piece_theme": "classic",
+            "difficulty": "easy",
+            "sound_enabled": True,
+            "vibration_enabled": True,
+            "hints_enabled": True,
+            "move_confirm": False,
+            "joined_date": f"Joined {now_str}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.users.insert_one(user_doc)
+        user_response = {k: v for k, v in user_doc.items() if k != "_id"}
+
+    await db.user_sessions.insert_one({
+        "session_token": session_token,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+    })
+
+    return {"session_token": session_token, "user": user_response}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
