@@ -1,0 +1,161 @@
+{
+  "app_name": "Chess Arena Royale",
+  "personality": "6 Glass / Luxe DARK with 7 Dark-First Utility fusion",
+  "personality_one_liner": "A cinematic, obsidian-and-gold chess arena combining tactile precision, deep tactical stats, and elite dark luxury.",
+  "color": {
+    "surface": "#0E1013",
+    "onSurface": "#F4EAD5",
+    "surfaceSecondary": "#171A21",
+    "onSurfaceSecondary": "#E2D3BC",
+    "surfaceTertiary": "#222733",
+    "onSurfaceTertiary": "#CBB89B",
+    "surfaceInverse": "#FAF4E6",
+    "onSurfaceInverse": "#111317",
+    "brand": "#D4AF37",
+    "brandPrimary": "#D4AF37",
+    "onBrandPrimary": "#111317",
+    "brandSecondary": "#AA8225",
+    "onBrandSecondary": "#FAF4E6",
+    "brandTertiary": "#2E2718",
+    "onBrandTertiary": "#EEDDBB",
+    "success": "#348256",
+    "onSuccess": "#E2F4EC",
+    "warning": "#C28929",
+    "onWarning": "#FDF6EC",
+    "error": "#B23B3B",
+    "onError": "#FCEAEA",
+    "info": "#3B728F",
+    "onInfo": "#EAF3F8",
+    "border": "#2C3240",
+    "borderStrong": "#D4AF37",
+    "divider": "#1E232E"
+  },
+  "typography": {
+    "displayFontFamily": "Cinzel / Playfair Display",
+    "textFontFamily": "Inter / Satoshi / DM Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Maintain generous breathing room with 16pt cards, 24pt screen margins, and clean touch targets ≥44pt.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "2",
+  "navigation": "bottom_tabs",
+  "icon_set": "MaterialCommunityIcons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use translucent dark frosted glass for floating bottom navigation",
+      "Apply glass blur overlay on active match cards and timer badges",
+      "Use gold glow accents on selected pieces and win states"
+    ],
+    "dont's": [
+      "Never blur body text or form inputs",
+      "Never exceed 2 blur surfaces in vertical hierarchy"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "LoginAuth",
+      "purpose": "Authenticate user via Email/Password or Instant Guest Mode with obsidian-gold luxury branding.",
+      "states": {
+        "loading": "Centered gold pulsing chess knight loader",
+        "empty": "N/A",
+        "error": "Inline toast banner with error description and retry"
+      },
+      "layout": "Full-bleed dark background with subtle gold radial vignette, centered branding monogram, segmented Login/Register tabs, clean input fields with icons, and 'Continue as Guest' secondary action."
+    },
+    {
+      "name": "HomeDashboard",
+      "purpose": "Central lobby showing user Elo rating, daily challenge card, quick play modes, and recent activity.",
+      "states": {
+        "loading": "Skeleton card placeholders with shimmer effect",
+        "empty": "No recent matches message with 'Play First Match' CTA",
+        "error": "Card banner showing connection retry button"
+      },
+      "layout": "Vertical scroll with safe area top. Header with greeting, avatar, and Elo badge. Featured Daily Challenge hero card with gold border. Grid of 4 game modes (Computer, Online, Pass & Play, Puzzles). Bottom sticky navigation bar."
+    },
+    {
+      "name": "MatchScreen",
+      "purpose": "The core interactive chess arena featuring custom board, piece movement, move sound effects, timer, hints, and analysis tools.",
+      "states": {
+        "loading": "Board setup spinner with custom piece assets",
+        "empty": "N/A",
+        "error": "Reconnection banner with reconnect timer"
+      },
+      "layout": "Top opponent bar with timer and captured pieces. Central responsive Chessboard with 8x8 squares, move highlights, and drag-and-drop piece interaction. Bottom player bar, timer, action tray (Undo, Hint, Resign, Settings), and Move confirmation toggle."
+    },
+    {
+      "name": "PuzzleDaily",
+      "purpose": "Daily tactical challenges and puzzle rush for skill training.",
+      "states": {
+        "loading": "Puzzle loading skeleton grid",
+        "empty": "No puzzles available today message",
+        "error": "Failed to load puzzles retry button"
+      },
+      "layout": "Header streak counter, featured tactical puzzle card with difficulty badge, interactive mini-board, and hint/solution action buttons."
+    },
+    {
+      "name": "LeaderboardProfile",
+      "purpose": "User profile with match statistics, win-loss record, and global Elo leaderboard.",
+      "states": {
+        "loading": "Profile skeleton loader with stats card placeholders",
+        "empty": "No match history recorded",
+        "error": "Failed to fetch stats retry button"
+      },
+      "layout": "Profile header with custom avatar, title, and Elo rating graph. Tabbed view switching between Match History list and Global Leaderboard rankings."
+    },
+    {
+      "name": "SettingsCustomisation",
+      "purpose": "Comprehensive settings for board/piece themes, audio move sounds, haptics, and engine strength.",
+      "states": {
+        "loading": "Settings placeholder list",
+        "empty": "N/A",
+        "error": "Settings save error alert"
+      },
+      "layout": "Categorized list rows with section headers: Audio & Haptics toggles, Board Themes (Obsidian Gold, Classic Wood, Emerald Marble), Piece Styles, and Account Management."
+    }
+  ],
+  "images": {
+    "hero_board_bg": {
+      "url": "https://images.unsplash.com/photo-1624185441616-232e5ac481ab",
+      "dark": "https://images.unsplash.com/photo-1624185441616-232e5ac481ab",
+      "alt": "Luxury obsidian dark gold chess board"
+    },
+    "king_piece_emblem": {
+      "url": "https://images.unsplash.com/photo-1645541636667-becfee706050",
+      "alt": "Gold chess king piece emblem"
+    }
+  },
+  "instructions_to_main_agent": "Ensure all screens strictly adhere to the Luxury Gold & Dark theme (#0E1013 surface, #D4AF37 gold accents). Implement haptics on move actions, move audio effects on legal piece drops, timer countdowns, and MongoDB-backed state handling. Use MaterialCommunityIcons for all icon elements and avoid any banned blue/indigo/purple hues."
+}
