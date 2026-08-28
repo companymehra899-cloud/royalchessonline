@@ -17,6 +17,7 @@ interface HomeScreenProps {
   onOpenLeaderboard: () => void;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
+  onOpenLeague: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -25,6 +26,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenLeaderboard,
   onOpenSettings,
   onOpenProfile,
+  onOpenLeague,
 }) => {
   const { user } = useAuth();
 
@@ -86,7 +88,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <MaterialCommunityIcons name="chevron-right" size={28} color={colors.gold} />
         </TouchableOpacity>
 
-        {/* 2x2 Feature Grid */}
+        {/* Chess League Banner */}
+        <TouchableOpacity
+          style={styles.leagueBanner}
+          testID="open-league-button"
+          onPress={onOpenLeague}
+          activeOpacity={0.85}
+        >
+          <View style={styles.leagueIconCircle}>
+            <MaterialCommunityIcons name="trophy-variant" size={28} color={colors.gold} />
+          </View>
+          <View style={styles.onlineTextCol}>
+            <Text style={styles.onlineHeroTitle}>CHESS LEAGUE</Text>
+            <Text style={styles.onlineHeroSub}>3-day season · Top 3 win ₹500/₹300/₹200</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={28} color={colors.gold} />
+        </TouchableOpacity>
+
         <View style={styles.grid}>
           {/* Play Computer */}
           <TouchableOpacity
@@ -288,6 +306,26 @@ const styles = StyleSheet.create({
   onlineTextCol: {
     flex: 1,
     marginLeft: 14,
+  },
+  leagueBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161d2b',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  leagueIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#2e2612',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.gold,
   },
   onlineHeroTitle: {
     color: colors.gold,

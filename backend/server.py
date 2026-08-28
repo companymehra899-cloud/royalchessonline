@@ -33,11 +33,12 @@ db = client[db_name]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'chess_arena_secret_luxury_key_2025')
 JWT_ALGORITHM = "HS256"
 
-# --- League / Rewards configuration ---
+# --- League / Rewards configuration (prizes claimed EXTERNALLY, no in-app payment) ---
 ADMIN_EMAILS = {"hackerabcd001@gmail.com"}
 LEAGUE_DURATION_DAYS = 3
 LEAGUE_MIN_PLAYERS = 200
 LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
+LEAGUE_CLAIM_URL = "yourdomain.com"  # external verification/claim destination
 PRIZE_TABLE = [
     {"rank": 1, "prize": 500},
     {"rank": 2, "prize": 300},
@@ -181,29 +182,7 @@ class CompletePuzzleRequest(BaseModel):
 class SendChatRequest(BaseModel):
     text: str
 
-# --- League / Wallet / KYC Models ---
-class KYCSubmitRequest(BaseModel):
-    full_name: str
-    pan_number: str
-    id_photo_base64: str  # base64-encoded image string
-
-class WithdrawRequest(BaseModel):
-    amount: Optional[float] = None  # defaults to full redeemable balance
-    method: str  # 'upi' or 'bank'
-    upi_id: Optional[str] = None
-    account_number: Optional[str] = None
-    ifsc: Optional[str] = None
-    account_name: Optional[str] = None
-
-class AdminKYCAction(BaseModel):
-    user_id: str
-    action: str  # 'verify' or 'reject'
-    note: Optional[str] = None
-
-class AdminWithdrawAction(BaseModel):
-    withdrawal_id: str
-    action: str  # 'approve' or 'reject'
-    note: Optional[str] = None
+# --- League configuration note: prizes are claimed EXTERNALLY (no in-app wallet/payment) ---
 
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
@@ -219,7 +198,6 @@ async def init_db():
         # Indexes for League / Rewards system
         await db.league_participants.create_index([("league_id", 1), ("user_id", 1)], unique=True)
         await db.match_point_logs.create_index("match_id", unique=True)
-        await db.wallets.create_index("user_id", unique=True)
         await db.leagues.create_index("status")
     except Exception as e:
         logging.error(f"Error creating league indexes: {e}")
@@ -839,6 +817,335 @@ async def create_status_check(input: StatusCheckCreate):
 async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
+
+# ==========================================================================
+#  ROYAL CHESS LEAGUE  (points-based; prizes claimed EXTERNALLY, no in-app payment)
+# ==========================================================================
+
+def _now():
+    return datetime.now(timezone.utc)
+
+def _parse_dt(value):
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+async def ensure_active_league():
+    """Guarantee there is always exactly one 'active' league; create one if missing."""
+    active = await db.leagues.find_one({"status": "active"})
+    if active:
+        return {k: v for k, v in active.items() if k != "_id"}
+    now = _now()
+    league_id = str(uuid.uuid4())
+    doc = {
+        "id": league_id,
+        "title": "Royal Chess League",
+        "status": "active",
+        "start_date": now.isoformat(),
+        "end_date": (now + timedelta(days=LEAGUE_DURATION_DAYS)).isoformat(),
+        "min_players": LEAGUE_MIN_PLAYERS,
+        "prizes": PRIZE_TABLE,
+        "winners": [],
+        "created_at": now.isoformat(),
+        "completed_at": None,
+    }
+    await db.leagues.insert_one(doc)
+    logging.info(f"Created new active league {league_id}")
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+async def complete_league(league):
+    """Freeze the leaderboard, compute Top 3 winners + prizes. NO wallet/payment (external claim)."""
+    league_id = league["id"]
+    top = await db.league_participants.find(
+        {"league_id": league_id}
+    ).sort([("points", -1), ("wins", -1)]).limit(3).to_list(3)
+
+    winners = []
+    for idx, p in enumerate(top):
+        rank = idx + 1
+        prize = next((x["prize"] for x in PRIZE_TABLE if x["rank"] == rank), 0)
+        winners.append({
+            "rank": rank,
+            "user_id": p["user_id"],
+            "username": p.get("username", "Player"),
+            "points": p.get("points", 0),
+            "wins": p.get("wins", 0),
+            "prize": prize,
+            "claim_url": LEAGUE_CLAIM_URL,
+        })
+
+    await db.leagues.update_one(
+        {"id": league_id},
+        {"$set": {"status": "completed", "winners": winners, "completed_at": _now().isoformat()}},
+    )
+    logging.info(f"Completed league {league_id} with {len(winners)} winners")
+    return winners
+
+async def check_and_rotate_leagues():
+    """If the active league has passed its end_date, complete it and open a fresh one."""
+    active = await db.leagues.find_one({"status": "active"})
+    if active:
+        if _now() >= _parse_dt(active["end_date"]):
+            await complete_league(active)
+            active = None
+    if not active:
+        await ensure_active_league()
+
+async def league_scheduler():
+    """Lightweight self-contained cron: checks league rotation every 60s."""
+    while True:
+        try:
+            await check_and_rotate_leagues()
+        except Exception as e:
+            logging.error(f"league_scheduler error: {e}")
+        await asyncio.sleep(60)
+
+async def award_league_points(room):
+    """SERVER-SIDE ONLY point awarding. Never trusts client input.
+    Idempotent via match_point_logs.match_id unique index. Only registered participants earn.
+    """
+    try:
+        if room.get("status") != "completed":
+            return
+        winner = room.get("winner")  # 'white' | 'black' | 'draw'
+        if winner not in ("white", "black", "draw"):
+            return
+        white = room.get("white_player") or {}
+        black = room.get("black_player") or {}
+        wid, bid = white.get("id"), black.get("id")
+        # Need two distinct real (non-guest) players
+        if not wid or not bid or wid == bid:
+            return
+        if str(wid).startswith("guest_") or str(bid).startswith("guest_"):
+            # Guests can still play; they simply won't be league participants, so no points.
+            pass
+
+        league = await db.leagues.find_one({"status": "active"})
+        if not league:
+            return
+        league_id = league["id"]
+
+        # Idempotency: one award per room game (match_id = room_code)
+        match_id = room.get("room_code")
+        log_doc = {
+            "id": str(uuid.uuid4()),
+            "match_id": match_id,
+            "league_id": league_id,
+            "room_code": room.get("room_code"),
+            "white_id": wid,
+            "black_id": bid,
+            "winner_id": None if winner == "draw" else (wid if winner == "white" else bid),
+            "loser_id": None if winner == "draw" else (bid if winner == "white" else wid),
+            "result": winner,
+            "awarded_at": _now().isoformat(),
+        }
+        try:
+            await db.match_point_logs.insert_one(log_doc)
+        except DuplicateKeyError:
+            logging.info(f"Points already awarded for match {match_id}; skipping.")
+            return
+
+        # Only players registered in the active league earn points (participation verified: they are the room players)
+        parts = await db.league_participants.find(
+            {"league_id": league_id, "user_id": {"$in": [wid, bid]}}
+        ).to_list(10)
+        registered = {p["user_id"] for p in parts}
+
+        async def apply(uid, pts, res):
+            if uid not in registered:
+                return
+            inc = {"points": pts, "games_played": 1}
+            inc["wins" if res == "win" else "draws" if res == "draw" else "losses"] = 1
+            await db.league_participants.update_one(
+                {"league_id": league_id, "user_id": uid},
+                {"$inc": inc, "$set": {"last_played_at": _now().isoformat()}},
+            )
+
+        if winner == "draw":
+            await apply(wid, LEAGUE_POINTS["draw"], "draw")
+            await apply(bid, LEAGUE_POINTS["draw"], "draw")
+        elif winner == "white":
+            await apply(wid, LEAGUE_POINTS["win"], "win")
+            await apply(bid, LEAGUE_POINTS["loss"], "loss")
+        else:  # black
+            await apply(bid, LEAGUE_POINTS["win"], "win")
+            await apply(wid, LEAGUE_POINTS["loss"], "loss")
+    except Exception as e:
+        logging.error(f"award_league_points error: {e}")
+
+async def _get_my_rank(league_id, user_id):
+    me = await db.league_participants.find_one({"league_id": league_id, "user_id": user_id}, {"_id": 0})
+    if not me:
+        return None, None
+    higher = await db.league_participants.count_documents({
+        "league_id": league_id,
+        "$or": [
+            {"points": {"$gt": me.get("points", 0)}},
+            {"points": me.get("points", 0), "wins": {"$gt": me.get("wins", 0)}},
+        ],
+    })
+    return higher + 1, me
+
+# ---------------- League Endpoints ----------------
+@api_router.get("/league/current")
+async def league_current(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    await check_and_rotate_leagues()
+    league = await ensure_active_league()
+    participant_count = await db.league_participants.count_documents({"league_id": league["id"]})
+    end_dt = _parse_dt(league["end_date"])
+    time_left = max(0, int((end_dt - _now()).total_seconds()))
+
+    joined = False
+    my_rank = None
+    my_points = 0
+    if current_user:
+        rank, me = await _get_my_rank(league["id"], current_user["id"])
+        if me:
+            joined = True
+            my_rank = rank
+            my_points = me.get("points", 0)
+
+    return {
+        "league": league,
+        "participant_count": participant_count,
+        "min_players": LEAGUE_MIN_PLAYERS,
+        "time_left_seconds": time_left,
+        "points_rule": LEAGUE_POINTS,
+        "prizes": PRIZE_TABLE,
+        "claim_url": LEAGUE_CLAIM_URL,
+        "joined": joined,
+        "my_rank": my_rank,
+        "my_points": my_points,
+    }
+
+@api_router.post("/league/register")
+async def league_register(current_user: Dict[str, Any] = Depends(get_current_user)):
+    rate_limit(f"league_register:{current_user['id']}", max_calls=10, window_seconds=60)
+    await check_and_rotate_leagues()
+    league = await ensure_active_league()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "league_id": league["id"],
+        "user_id": current_user["id"],
+        "username": current_user.get("username", "Player"),
+        "avatar_id": current_user.get("avatar_id", "knight_gold"),
+        "points": 0,
+        "games_played": 0,
+        "wins": 0,
+        "draws": 0,
+        "losses": 0,
+        "registered_at": _now().isoformat(),
+    }
+    try:
+        await db.league_participants.insert_one(doc)
+        already = False
+    except DuplicateKeyError:
+        already = True
+    participant_count = await db.league_participants.count_documents({"league_id": league["id"]})
+    return {"success": True, "already_registered": already, "league_id": league["id"], "participant_count": participant_count}
+
+@api_router.get("/league/leaderboard")
+async def league_leaderboard(limit: int = 50, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    await check_and_rotate_leagues()
+    league = await ensure_active_league()
+    cursor = db.league_participants.find(
+        {"league_id": league["id"]}, {"_id": 0}
+    ).sort([("points", -1), ("wins", -1)]).limit(limit)
+    players = await cursor.to_list(limit)
+    ranked = []
+    for i, p in enumerate(players):
+        ranked.append({
+            "rank": i + 1,
+            "user_id": p.get("user_id"),
+            "username": p.get("username", "Player"),
+            "avatar_id": p.get("avatar_id", "knight_gold"),
+            "points": p.get("points", 0),
+            "wins": p.get("wins", 0),
+            "draws": p.get("draws", 0),
+            "losses": p.get("losses", 0),
+            "games_played": p.get("games_played", 0),
+        })
+    my_rank = None
+    if current_user:
+        r, _me = await _get_my_rank(league["id"], current_user["id"])
+        my_rank = r
+    return {"league_id": league["id"], "leaderboard": ranked, "my_rank": my_rank}
+
+@api_router.get("/league/me")
+async def league_me(current_user: Dict[str, Any] = Depends(get_current_user)):
+    await check_and_rotate_leagues()
+    league = await ensure_active_league()
+    rank, me = await _get_my_rank(league["id"], current_user["id"])
+    # Any prize the user won in the most recent completed league
+    winnings = await league_my_winnings(current_user)
+    return {
+        "joined": me is not None,
+        "rank": rank,
+        "stats": me,
+        "recent_winnings": winnings.get("winnings", []),
+    }
+
+@api_router.get("/league/my-winnings")
+async def league_my_winnings(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Returns any Top-3 prizes the user has won in completed leagues, with an external claim message."""
+    uid = current_user["id"]
+    cursor = db.leagues.find(
+        {"status": "completed", "winners.user_id": uid}, {"_id": 0}
+    ).sort([("completed_at", -1)]).limit(10)
+    completed = await cursor.to_list(10)
+    winnings = []
+    for lg in completed:
+        for w in lg.get("winners", []):
+            if w.get("user_id") == uid:
+                prize = w.get("prize", 0)
+                winnings.append({
+                    "league_id": lg["id"],
+                    "league_title": lg.get("title", "Royal Chess League"),
+                    "rank": w.get("rank"),
+                    "points": w.get("points", 0),
+                    "prize": prize,
+                    "completed_at": lg.get("completed_at"),
+                    "message": (
+                        f"Congratulations! You won \u20b9{prize}. "
+                        f"Please complete your verification on our official message box ({LEAGUE_CLAIM_URL}) to claim your prize."
+                    ),
+                })
+    return {"winnings": winnings}
+
+# ---------------- Admin Endpoints (external verification/payout is done off-app) ----------------
+@api_router.get("/admin/league/overview")
+async def admin_league_overview(current_user: Dict[str, Any] = Depends(require_admin)):
+    active = await ensure_active_league()
+    participant_count = await db.league_participants.count_documents({"league_id": active["id"]})
+    top = await db.league_participants.find(
+        {"league_id": active["id"]}, {"_id": 0}
+    ).sort([("points", -1), ("wins", -1)]).limit(10).to_list(10)
+    completed = await db.leagues.find(
+        {"status": "completed"}, {"_id": 0}
+    ).sort([("completed_at", -1)]).limit(5).to_list(5)
+    return {
+        "active_league": active,
+        "active_participant_count": participant_count,
+        "active_top10": top,
+        "recent_completed": completed,
+    }
+
+@api_router.post("/admin/league/force-complete")
+async def admin_league_force_complete(current_user: Dict[str, Any] = Depends(require_admin)):
+    """Admin/testing utility: freeze current league now, distribute Top 3, open a new one."""
+    active = await db.leagues.find_one({"status": "active"})
+    if not active:
+        active_clean = await ensure_active_league()
+        return {"success": False, "detail": "No active league was running; a new one has been created.", "league_id": active_clean["id"]}
+    winners = await complete_league(active)
+    new_league = await ensure_active_league()
+    return {"success": True, "completed_league_id": active["id"], "winners": winners, "new_league_id": new_league["id"]}
+
+
 
 # Include the router in the main app
 app.include_router(api_router)

@@ -140,18 +140,49 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.1"
-  test_sequence: 1
+  version: "1.2"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "In-game chat endpoints scoped to a match room"
+    - "Royal Chess League backend (points, leaderboard, secure awarding, admin)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     -agent: "main"
-    -message: "Please test ONLY the two new chat backend endpoints. Create a room via POST /api/online/rooms/create, then test POST /api/online/rooms/{room_code}/chat and GET /api/online/rooms/{room_code}/chat. Verify: message persists and is returned in order; sender_name/sender_id resolve when Authorization Bearer token provided (demo login chessplayer@gmail.com / password123) vs anonymous; empty/whitespace text returns 400; unknown room returns 404; text longer than 500 chars is trimmed to 500. Do NOT test or modify any other endpoints (rooms create/join/move, auth, games, puzzles are unchanged)."
+    -message: "PRIOR (already verified): in-game chat endpoints work. NOW please test ONLY the new Royal Chess League backend (points-based; NO in-app money/wallet/withdrawal/KYC - prizes are claimed externally). Endpoints: GET /api/league/current, POST /api/league/register (auth), GET /api/league/leaderboard, GET /api/league/me (auth), GET /api/league/my-winnings (auth), POST /api/online/rooms/{code}/resign (auth, must be a player), GET /api/admin/league/overview (admin only), POST /api/admin/league/force-complete (admin only). Credentials in /app/memory/test_credentials.md (demo chessplayer@gmail.com/password123, opponent leaguep2@test.com/pass123, admin hackerabcd001@gmail.com/admin123). KEY SCENARIOS: (1) register is idempotent (already_registered true on 2nd call). (2) Points awarded ONLY server-side when an online room game completes: create room as demo (white), join as opponent (black), push Fool's mate moves (f2f3,e7e5,g2g4,d8h4) via /move -> winner=black -> Challenger2 +10, demo +0/1 loss. Points must ONLY accrue for users registered in the active league. (3) Idempotency: re-sending the mating move must NOT double-award (match_id unique). (4) Resign: a player resigning gives opponent the win + points. (5) Non-player resign -> 403. (6) Admin force-complete freezes Top3 with prizes 500/300/200 and opens a fresh league; my-winnings returns exact message 'Congratulations! You won \u20b9500. Please complete your verification on our official message box (yourdomain.com) to claim your prize.'. (7) Admin endpoints return 403 for non-admin. (8) Auth-required endpoints return 401 without token. Do NOT modify existing chess/rooms/chat/auth/puzzles logic."
+
+#====================================================================================================
+## Session: Royal Chess League (points-based, external cash claim) - Aug 2026
+user_problem_statement: "Add a recurring 3-day Chess League. Win=+10, Draw=+4, Loss=0. Rank by points desc then wins. Top 3 prizes 500/300/200. NO in-app money/wallet/withdrawal/payment gateway and NO in-app KYC - app only shows leaderboard + a winner congrats message directing users to complete verification externally (yourdomain.com); admin verifies & pays via UPI off-app. Points must be computed strictly server-side on completed ONLINE room games, idempotent via match_id, only for registered participants, users cannot modify points. Admin = hackerabcd001@gmail.com. Do NOT break chess logic, multiplayer, rooms, chat, auth, timers, puzzles, settings."
+
+backend:
+  - task: "Royal Chess League - points, leaderboard, registration, secure awarding, cron rotation, admin"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Added league system (points-only, prizes claimed externally). Collections: leagues, league_participants (unique league_id+user_id), match_point_logs (unique match_id). Endpoints: /league/current, /league/register, /league/leaderboard, /league/me, /league/my-winnings, /online/rooms/{code}/resign, /admin/league/overview, /admin/league/force-complete. Points awarded strictly server-side inside room completion (checkmate/draw in /move, and /resign) via award_league_points() reading room.winner + player ids; idempotent via match_id unique index; only registered participants earn. asyncio background scheduler auto-rotates leagues every 3 days (ensure_active_league on startup). Basic in-memory rate_limit on register. Admin gated by email hackerabcd001@gmail.com. Manually verified via curl: current/register/me/leaderboard, Fool's-mate awards +10 to winner, duplicate move does not double-award, force-complete freezes Top3 (500/300/200) + winnings message exact, non-admin 403. No existing endpoints modified except /move now calls award on completion."
+
+frontend:
+  - task: "League Dashboard + Leaderboard + Top3 Podium + winner congrats message (no in-app payment)"
+    implemented: false
+    working: "NA"
+    file: "frontend (pending)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Not yet built. Will add LeagueScreen (timer, participant count, Join, Top3 podium, leaderboard) + winner congrats banner directing to external claim. No wallet/withdrawal/KYC UI."
+
 

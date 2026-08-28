@@ -9,6 +9,7 @@ import { ProfileScreen } from '../src/screens/ProfileScreen';
 import { SettingsScreen } from '../src/screens/SettingsScreen';
 import { PuzzlesScreen } from '../src/screens/PuzzlesScreen';
 import { LeaderboardScreen } from '../src/screens/LeaderboardScreen';
+import { LeagueScreen } from '../src/screens/LeagueScreen';
 import { OnlineModal } from '../src/screens/OnlineModal';
 import { BottomTabBar, TabType } from '../src/components/BottomTabBar';
 import { colors } from '../src/theme/colors';
@@ -25,6 +26,7 @@ function MainApp() {
     roomCode?: string;
   } | null>(null);
   const [onlineModalVisible, setOnlineModalVisible] = useState(false);
+  const [showLeague, setShowLeague] = useState(false);
 
   // If in active match
   if (currentMatch) {
@@ -38,6 +40,22 @@ function MainApp() {
           onBack={() => setCurrentMatch(null)}
           onOpenSettings={() => {
             setCurrentMatch(null);
+            setActiveTab('settings');
+          }}
+        />
+      </View>
+    );
+  }
+
+  // League full-screen overlay
+  if (showLeague) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+        <LeagueScreen
+          onBack={() => setShowLeague(false)}
+          onOpenSettings={() => {
+            setShowLeague(false);
             setActiveTab('settings');
           }}
         />
@@ -75,6 +93,7 @@ function MainApp() {
             onOpenLeaderboard={() => setActiveTab('games')}
             onOpenSettings={() => setActiveTab('settings')}
             onOpenProfile={() => setActiveTab('profile')}
+            onOpenLeague={() => setShowLeague(true)}
           />
         );
       case 'games':
