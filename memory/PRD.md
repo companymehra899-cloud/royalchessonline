@@ -41,3 +41,7 @@ User choices: Play vs Computer + Online Multiplayer, Standard rules + AI engine 
 1. Analysis board screen.
 2. Online realtime turn sync + live clocks.
 3. Wire actual sound assets + haptics.
+
+## Config Update (June 2026)
+- App name: "Royal Chess Online", slug: "royal-chess-online"
+- Android package & iOS bundle ID: com.royalchess.online (updated in /app/frontend/app.json)
