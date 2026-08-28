@@ -107,3 +107,51 @@
   - Backend: POST /api/auth/session exchanges session_id (via X-Session-ID header to demobackend.emergentagent.com) for 7-day session_token; upserts user by email storing verified email, google_name, google_id (provider ID), picture; stores session in user_sessions with TTL index. get_current_user_optional now accepts BOTH legacy JWT tokens and Google session tokens as Bearer.
   - Frontend AuthContext: googleLogin() opens auth.emergentagent.com (window.location.href on web, WebBrowser.openAuthSessionAsync on mobile with url listener + getInitialURL fallbacks), extracts session_id from hash/query via regex, POSTs to /api/auth/session, stores session_token in SecureStore (mobile)/localStorage (web). session_id in callback URL is processed FIRST on mount, before autoDemoLogin. Guest mode (POST /api/auth/guest) unchanged and fully separate.
 - Note: App auto-logs-in demo account (chessplayer@gmail.com) on fresh load. To reach AuthScreen, logout from Profile screen first.
+
+#====================================================================================================
+## Session: In-Game Chat Feature (Aug 2025)
+user_problem_statement: "Add a real-time in-game text chat feature to Royal Chess Online so the two players in the SAME online match can message each other while the game is in progress. Use existing backend, DB, auth, and multiplayer (polling) architecture. Do not change chess logic, matchmaking, timers, auth, or other features."
+
+backend:
+  - task: "In-game chat endpoints scoped to a match room"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Added POST /api/online/rooms/{room_code}/chat (sends a message; identifies sender via existing get_current_user_optional auth; pushes {id, sender_id, sender_name, text, created_at} into room.chat_messages; trims text to 500 chars; 400 on empty; 404 on unknown room) and GET /api/online/rooms/{room_code}/chat (returns chat_messages array; 404 on unknown room). Manually verified via curl: create room, authed+guest send, empty->400, unknown room->404, 500-char trim works, sender_name resolves to ChessPlayer with token. No existing endpoints modified."
+
+frontend:
+  - task: "In-game chat UI (floating button + slide-up modal, polling)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/GameChat.tsx, frontend/src/screens/MatchScreen.tsx, frontend/app/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "New self-contained GameChat component: floating gold chat FAB with unread badge + slide-up Modal (messages list, KeyboardAvoidingView, text input, send). Polls GET chat every 3s; sender identified by sender_id === userId. Rendered in MatchScreen ONLY when mode==='online' && roomCode. Added optional roomCode prop to MatchScreen and passed it from index.tsx. Computer/friend games unchanged. NOT yet tested via UI agent (awaiting user permission)."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "In-game chat endpoints scoped to a match room"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Please test ONLY the two new chat backend endpoints. Create a room via POST /api/online/rooms/create, then test POST /api/online/rooms/{room_code}/chat and GET /api/online/rooms/{room_code}/chat. Verify: message persists and is returned in order; sender_name/sender_id resolve when Authorization Bearer token provided (demo login chessplayer@gmail.com / password123) vs anonymous; empty/whitespace text returns 400; unknown room returns 404; text longer than 500 chars is trimmed to 500. Do NOT test or modify any other endpoints (rooms create/join/move, auth, games, puzzles are unchanged)."
+

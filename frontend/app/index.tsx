@@ -34,6 +34,7 @@ function MainApp() {
         <MatchScreen
           mode={currentMatch.mode}
           difficulty={currentMatch.difficulty || difficulty}
+          roomCode={currentMatch.roomCode}
           onBack={() => setCurrentMatch(null)}
           onOpenSettings={() => {
             setCurrentMatch(null);

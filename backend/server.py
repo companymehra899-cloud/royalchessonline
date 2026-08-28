@@ -139,6 +139,9 @@ class CompletePuzzleRequest(BaseModel):
     puzzle_id: str
     solved: bool
 
+class SendChatRequest(BaseModel):
+    text: str
+
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
 async def init_db():
@@ -661,6 +664,48 @@ async def make_room_move(room_code: str, req: MakeRoomMoveRequest):
     except Exception as e:
         logging.error(f"Move error in room {room_code}: {e}")
         raise HTTPException(status_code=400, detail="Invalid move execution")
+
+# --- In-Game Chat (scoped to a single match room) ---
+@api_router.post("/online/rooms/{room_code}/chat")
+async def send_chat_message(
+    room_code: str,
+    req: SendChatRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+):
+    room = await db.rooms.find_one({"room_code": room_code.upper()})
+    if not room:
+        raise HTTPException(status_code=404, detail="Game room not found")
+
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    text = text[:500]  # keep messages reasonable
+
+    sender_id = current_user.get("id") if current_user else "guest"
+    sender_name = current_user.get("username") if current_user else "Player"
+
+    message = {
+        "id": str(uuid.uuid4()),
+        "sender_id": sender_id,
+        "sender_name": sender_name,
+        "text": text,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db.rooms.update_one(
+        {"room_code": room_code.upper()},
+        {"$push": {"chat_messages": message}},
+    )
+    return message
+
+@api_router.get("/online/rooms/{room_code}/chat")
+async def get_chat_messages(room_code: str):
+    room = await db.rooms.find_one(
+        {"room_code": room_code.upper()}, {"_id": 0, "chat_messages": 1}
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail="Game room not found")
+    return room.get("chat_messages", [])
 
 # Define Models
 class StatusCheck(BaseModel):

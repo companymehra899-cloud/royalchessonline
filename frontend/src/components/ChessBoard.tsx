@@ -159,7 +159,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     <ChessPiece
                       type={piece.type}
                       color={piece.color}
-                      size={SQUARE_SIZE * 0.82}
+                      size={SQUARE_SIZE * 0.9}
                       theme={pieceTheme}
                     />
                   )}

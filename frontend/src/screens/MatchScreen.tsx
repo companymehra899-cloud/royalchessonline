@@ -12,6 +12,7 @@ import { Chess } from 'chess.js';
 import { colors } from '../theme/colors';
 import { ChessBoard } from '../components/ChessBoard';
 import { GameOverModal } from '../components/GameOverModal';
+import { GameChat } from '../components/GameChat';
 import { useAuth } from '../context/AuthContext';
 import { useGameSettings } from '../context/GameSettingsContext';
 import { soundManager } from '../utils/audio';
@@ -22,6 +23,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 interface MatchScreenProps {
   mode: GameMode;
   difficulty?: AIDifficulty;
+  roomCode?: string;
   onBack: () => void;
   onOpenSettings: () => void;
 }
@@ -29,6 +31,7 @@ interface MatchScreenProps {
 export const MatchScreen: React.FC<MatchScreenProps> = ({
   mode,
   difficulty = 'easy',
+  roomCode,
   onBack,
   onOpenSettings,
 }) => {
@@ -410,6 +413,11 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
           <Text style={[styles.actionBtnText, { color: colors.danger }]}>RESIGN</Text>
         </TouchableOpacity>
       </View>
+
+      {/* In-Game Chat (online matches only) */}
+      {mode === 'online' && roomCode ? (
+        <GameChat roomCode={roomCode} userId={user?.id} token={token} />
+      ) : null}
 
       {/* Game Over Modal */}
       <GameOverModal
