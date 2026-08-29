@@ -45,6 +45,7 @@ services:
     environment:
       EXPO_PUBLIC_BACKEND_TARGET: http://backend:8000
       EXPO_PUBLIC_BACKEND_URL: ""
+      BASE44_PUBLIC_HOST_SUFFIX: ${BASE44_PUBLIC_HOST_SUFFIX}
     volumes:
       - ./frontend:/app/frontend
     ports:
