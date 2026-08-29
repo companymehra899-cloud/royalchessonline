@@ -9,41 +9,186 @@ interface ChessPieceProps {
   theme?: 'classic' | 'luxury' | 'modern';
 }
 
-// Clean classic Staunton vector set (open-source "cburnett" artwork).
-// viewBox 0 0 45 45. White pieces use fill="#fff"; black pieces use fill="#000".
-const PIECE_SVGS: Record<string, string> = {
-  wp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path fill="#fff" stroke="#000" stroke-linecap="round" stroke-width="1.5" d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/></svg>',
-  wr: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3-3v-4h21v4zm-1-22V9h4v2h5V9h5v2h5V9h4v5"/><path d="m34 14-3 3H14l-3-3"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M31 17v12.5H14V17"/><path d="m31 29.5 1.5 2.5h-20l1.5-2.5"/><path fill="none" stroke-linejoin="miter" d="M11 14h23"/></g></svg>',
-  wb: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.35.49-2.32.47-3-.5 1.35-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path stroke-linejoin="miter" d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>',
-  wn: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path fill="#fff" d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21"/><path fill="#fff" d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4.003 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-.994-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-1.992 2.5-3c1 0 1 3 1 3"/><path fill="#000" d="M9.5 25.5a.5.5 0 1 1-1 0 .5.5 0 1 1 1 0m5.433-9.75a.5 1.5 30 1 1-.866-.5.5 1.5 30 1 1 .866.5"/></g></svg>',
-  wq: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0m16.5-4.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0M41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0M16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0M33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0"/><path stroke-linecap="butt" d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14z"/><path stroke-linecap="butt" d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/><path fill="none" d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0"/></g></svg>',
-  wk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linejoin="miter" d="M22.5 11.63V6M20 8h5"/><path fill="#fff" stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path fill="#fff" d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10z"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>',
-  bp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path fill="#000" stroke="#000" stroke-linecap="round" stroke-width="1.5" d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z"/></svg>',
-  br: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M14 29.5v-13h17v13z"/><path stroke-linecap="butt" d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z"/><path fill="none" stroke="#ececec" stroke-linejoin="miter" stroke-width="1" d="M12 35.5h21m-20-4h19m-18-2h17m-17-13h17M11 14h23"/></g></svg>',
-  bb: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g fill="#000" stroke-linecap="butt"><path d="M9 36c3.4-1 10.1.4 13.5-2 3.4 2.4 10.1 1 13.5 2 0 0 1.6.5 3 2-.7 1-1.6 1-3 .5-3.4-1-10.1.5-13.5-1-3.4 1.5-10.1 0-13.5 1-1.4.5-2.3.5-3-.5 1.4-2 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path stroke="#ececec" stroke-linejoin="miter" d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>',
-  bn: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path fill="#000" d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21"/><path fill="#000" d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.04-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-1-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-2 2.5-3c1 0 1 3 1 3"/><path fill="#ececec" stroke="#ececec" d="M9.5 25.5a.5.5 0 1 1-1 0 .5.5 0 1 1 1 0m5.43-9.75a.5 1.5 30 1 1-.86-.5.5 1.5 30 1 1 .86.5"/><path fill="#ececec" stroke="none" d="m24.55 10.4-.45 1.45.5.15c3.15 1 5.65 2.49 7.9 6.75S35.75 29.06 35.25 39l-.05.5h2.25l.05-.5c.5-10.06-.88-16.85-3.25-21.34s-5.79-6.64-9.19-7.16z"/></g></svg>',
-  bq: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g stroke="none"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path stroke-linecap="butt" d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5z"/><path stroke-linecap="butt" d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/><path fill="none" stroke-linecap="butt" d="M11 38.5a35 35 1 0 0 23 0"/><path fill="none" stroke="#ececec" d="M11 29a35 35 1 0 1 23 0m-21.5 2.5h20m-21 3a35 35 1 0 0 22 0m-23 3a35 35 1 0 0 24 0"/></g></svg>',
-  bk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linejoin="miter" d="M22.5 11.6V6"/><path fill="#000" stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path fill="#000" d="M11.5 37a22.3 22.3 0 0 0 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10z"/><path stroke-linejoin="miter" d="M20 8h5"/><path stroke="#ececec" d="M32 29.5s8.5-4 6-9.7C34.1 14 25 18 22.5 24.6v2.1-2.1C20 18 9.9 14 7 19.9c-2.5 5.6 4.8 9 4.8 9"/><path stroke="#ececec" d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>',
+// ---------------------------------------------------------------------------
+// Premium 3D-style vector chess pieces.
+//
+// Design language (per the user's reference image):
+//   • Matte cream / walnut bodies with gradient shading for soft 3D volume.
+//   • A distinct dark-green felt base pad on every piece.
+//   • Light comes from the upper-left: cylindrical parts get a left-biased
+//     linear gradient, spherical parts get an offset radial gradient.
+//   • Thin darker outlines for crisp silhouettes.
+//
+// Each render instance gets a unique id prefix so SVG gradient ids never
+// collide when 32 pieces are on screen simultaneously.
+// ---------------------------------------------------------------------------
+
+type Palette = { light: string; mid: string; dark: string; edge: string };
+
+const WHITE_PALETTES: Record<string, Palette> = {
+  classic: { light: '#FCF4E4', mid: '#F0E2C6', dark: '#DCCBA4', edge: '#B89B6E' },
+  luxury:  { light: '#FBF0D4', mid: '#E8D5A8', dark: '#C9A86C', edge: '#9A7B45' },
+  modern:  { light: '#FFFFFF', mid: '#EAEDF2', dark: '#CFD4DD', edge: '#A0A8B5' },
 };
 
-// Subtle tone variation per piece theme (keeps clean Staunton look on every board).
-const TONES: Record<string, { light: string; dark: string }> = {
-  classic: { light: '#f7f4ec', dark: '#2b2b2b' },
-  luxury: { light: '#f3e3b8', dark: '#20180d' },
-  modern: { light: '#ffffff', dark: '#12161f' },
+const BLACK_PALETTES: Record<string, Palette> = {
+  classic: { light: '#5C4329', mid: '#3E2B16', dark: '#2A1A0A', edge: '#160B02' },
+  luxury:  { light: '#6B4F30', mid: '#4A3318', dark: '#2E1D0A', edge: '#160B02' },
+  modern:  { light: '#52525C', mid: '#34343E', dark: '#1E1E28', edge: '#0A0A14' },
 };
+
+const FELT_LIGHT = '#007A00';
+const FELT_DARK = '#002400';
+
+/** Gradient <defs> shared by all pieces. */
+function buildDefs(uid: string, p: Palette): string {
+  return `<defs>
+    <radialGradient id="${uid}-felt" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="${FELT_LIGHT}"/>
+      <stop offset="100%" stop-color="${FELT_DARK}"/>
+    </radialGradient>
+    <linearGradient id="${uid}-cyl" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${p.dark}"/>
+      <stop offset="22%" stop-color="${p.light}"/>
+      <stop offset="58%" stop-color="${p.mid}"/>
+      <stop offset="100%" stop-color="${p.dark}"/>
+    </linearGradient>
+    <radialGradient id="${uid}-ball" cx="33%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="${p.light}"/>
+      <stop offset="48%" stop-color="${p.mid}"/>
+      <stop offset="100%" stop-color="${p.dark}"/>
+    </radialGradient>
+  </defs>`;
+}
+
+const SW = 0.5; // outline stroke width
+
+/** Felt base pad — identical on every piece. */
+function feltBase(uid: string): string {
+  return `<ellipse cx="22.5" cy="41" rx="12" ry="2.4" fill="url(#${uid}-felt)"/>`;
+}
+
+/** The cylindrical bottom base + collar ring shared by all pieces. */
+function pieceBase(uid: string, p: Palette): string {
+  return `
+    <path d="M11 38.5 Q11 35.2 22.5 34.8 Q34 35.2 34 38.5 Q34 40.2 22.5 40.2 Q11 40.2 11 38.5 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="34.8" rx="9.8" ry="1.6" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+  `;
+}
+
+// ---- Per-piece upper bodies ------------------------------------------------
+
+function pawnTop(uid: string, p: Palette): string {
+  return `
+    <path d="M19.5 34.8 L19 30 Q19 27.3 22.5 27.3 Q26 27.3 26 30 L25.5 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="22.5" cy="23" r="6.8" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+  `;
+}
+
+function rookTop(uid: string, p: Palette): string {
+  return `
+    <path d="M15.5 34.8 L15.5 24.5 Q15.5 23 17 23 L28 23 Q29.5 23 29.5 24.5 L29.5 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="23" rx="7.5" ry="1.4" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M16.5 23 L16.5 19.5 L19 19.5 L19 21.3 L21 21.3 L21 19.5 L24 19.5 L24 21.3 L26 21.3 L26 19.5 L28.5 19.5 L28.5 23 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
+  `;
+}
+
+function bishopTop(uid: string, p: Palette): string {
+  return `
+    <path d="M19 34.8 L18.5 28 Q18.5 25.2 22.5 24.7 Q26.5 25.2 26.5 28 L26 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="25" rx="6.3" ry="1.2" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M17.2 25 Q17.2 19.5 22.5 15 Q27.8 19.5 27.8 25 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M22.5 15 L22.5 21.5 M20.5 19 L24.5 17.5"
+          stroke="${p.edge}" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+    <circle cx="22.5" cy="13.3" r="1.9" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+  `;
+}
+
+function knightTop(uid: string, p: Palette): string {
+  return `
+    <!-- mane behind head -->
+    <path d="M19 34.8 C19 31 21 28 24 26.5 C27 25 29 23 29.5 20.5 C30 18 28.5 16.5 26 17 C24 17.3 22 19 20.5 21 C19 23 18 26 18 29 C18 31.5 18.2 33.5 18.5 34.8 Z"
+          fill="url(#${uid}-cyl)" opacity="0.92" stroke="${p.edge}" stroke-width="${SW}"/>
+    <!-- horse head (facing left) -->
+    <path d="M13 34.8
+             C13 31.5 14 29 16 27
+             C13.5 25.5 11.5 24 11 21.5
+             C10.7 20 11.2 18.8 12.5 18.3
+             L14 19.5
+             L15.5 18
+             C16.5 18.8 17 19.8 16.8 21
+             C16.5 22.5 16 24 17 25
+             C18.5 26.5 20 28 20 31
+             C20 33 19 34.3 17.5 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
+    <circle cx="13.5" cy="23" r="0.7" fill="${p.edge}"/>
+  `;
+}
+
+function queenTop(uid: string, p: Palette): string {
+  return `
+    <path d="M18.5 34.8 L18 27 Q18 24.5 22.5 24 Q27 24.5 27 27 L26.5 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="24.3" rx="7" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <!-- crown spike stems -->
+    <path d="M16.5 24 L16.8 18.5 M19.5 24 L19.5 16.5 M22.5 24 L22.5 14.5 M25.5 24 L25.5 16.5 M28.5 24 L28.2 18.5"
+          stroke="url(#${uid}-cyl)" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <!-- finial balls -->
+    <circle cx="16.8" cy="18" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="19.5" cy="16" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="22.5" cy="14.2" r="2" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="25.5" cy="16" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="28.2" cy="18" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+  `;
+}
+
+function kingTop(uid: string, p: Palette): string {
+  return `
+    <path d="M18 34.8 L17.5 27 Q17.5 24.5 22.5 24 Q27.5 24.5 27.5 27 L27 34.8 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="24" rx="7.5" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <!-- crown body -->
+    <path d="M15.5 24 Q15.5 18.5 22.5 15.8 Q29.5 18.5 29.5 24 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <!-- crown rim lines -->
+    <path d="M16.5 21 L28.5 21" stroke="${p.edge}" stroke-width="0.6" opacity="0.4"/>
+    <!-- cross finial -->
+    <path d="M21.5 16 L21.5 13.5 L18.8 13.5 L18.8 11.5 L21.5 11.5 L21.5 9 L23.5 9 L23.5 11.5 L26.2 11.5 L26.2 13.5 L23.5 13.5 L23.5 16 Z"
+          fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
+  `;
+}
+
+function buildPieceSVG(type: string, color: 'w' | 'b', theme: string, uid: string): string {
+  const p = (color === 'w' ? WHITE_PALETTES : BLACK_PALETTES)[theme] || WHITE_PALETTES.classic;
+  const head = (t: string) => {
+    switch (t) {
+      case 'p': return pawnTop(uid, p);
+      case 'r': return rookTop(uid, p);
+      case 'b': return bishopTop(uid, p);
+      case 'n': return knightTop(uid, p);
+      case 'q': return queenTop(uid, p);
+      case 'k': return kingTop(uid, p);
+      default: return pawnTop(uid, p);
+    }
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45">
+    ${buildDefs(uid, p)}
+    ${feltBase(uid)}
+    ${pieceBase(uid, p)}
+    ${head(type)}
+  </svg>`;
+}
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, theme = 'classic' }) => {
   const xml = useMemo(() => {
-    const key = `${color}${type}`;
-    let svg = PIECE_SVGS[key] || PIECE_SVGS[`${color}p`];
-    const tone = TONES[theme] || TONES.classic;
-    if (color === 'w') {
-      svg = svg.split('fill="#fff"').join(`fill="${tone.light}"`);
-    } else {
-      svg = svg.split('fill="#000"').join(`fill="${tone.dark}"`);
-    }
-    return svg;
+    const uid = Math.random().toString(36).slice(2, 9);
+    return buildPieceSVG(type, color, theme, uid);
   }, [type, color, theme]);
 
   return (
@@ -57,10 +202,9 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    // Soft drop shadow to give the flat vectors subtle depth like a real set.
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
 });

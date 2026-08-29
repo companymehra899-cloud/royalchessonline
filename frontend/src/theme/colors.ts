@@ -28,35 +28,35 @@ export const colors = {
   warning: '#f59e0b',
   info: '#38bdf8',
   
-  // Board themes
+  // Board themes — premium polished finishes
   boards: {
     wood: {
       name: 'Wood',
-      light: '#e8d3a7',
-      dark: '#966138',
-      highlight: 'rgba(212, 175, 55, 0.65)',
-      selected: 'rgba(245, 158, 11, 0.75)'
+      light: '#EAD9B0',
+      dark: '#A87444',
+      highlight: 'rgba(212, 175, 55, 0.55)',
+      selected: 'rgba(245, 158, 11, 0.7)'
     },
     green: {
       name: 'Classic Green',
-      light: '#eeeed2',
-      dark: '#769656',
-      highlight: 'rgba(245, 230, 83, 0.65)',
-      selected: 'rgba(245, 158, 11, 0.75)'
+      light: '#F0E8D0',
+      dark: '#6E8E5A',
+      highlight: 'rgba(245, 230, 83, 0.6)',
+      selected: 'rgba(245, 158, 11, 0.7)'
     },
     obsidian: {
       name: 'Obsidian Gold',
-      light: '#2a3346',
-      dark: '#131924',
-      highlight: 'rgba(212, 175, 55, 0.65)',
-      selected: 'rgba(212, 175, 55, 0.85)'
+      light: '#323B50',
+      dark: '#161E2E',
+      highlight: 'rgba(212, 175, 55, 0.6)',
+      selected: 'rgba(212, 175, 55, 0.8)'
     },
     slate: {
       name: 'Midnight Slate',
-      light: '#8ca2ad',
-      dark: '#4e626e',
-      highlight: 'rgba(212, 175, 55, 0.65)',
-      selected: 'rgba(245, 158, 11, 0.75)'
+      light: '#94A8B4',
+      dark: '#52677A',
+      highlight: 'rgba(212, 175, 55, 0.6)',
+      selected: 'rgba(245, 158, 11, 0.7)'
     }
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Chess, Square, Move } from 'chess.js';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChessPiece } from './ChessPiece';
 import { PromotionModal } from './PromotionModal';
 import { colors, BoardThemeKey } from '../theme/colors';
@@ -118,6 +119,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   return (
     <View style={styles.boardWrapper}>
+      <LinearGradient
+        colors={['#5a4222', '#3a2c14', '#5a4222']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.boardFrame}
+      >
       <View style={[styles.boardContainer, { width: SQUARE_SIZE * 8, height: SQUARE_SIZE * 8 }]}>
         {ranks.map((rank, rankIdx) => (
           <View key={`rank-${rank}`} style={styles.row}>
@@ -197,6 +204,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           </View>
         ))}
       </View>
+      </LinearGradient>
 
       {/* Promotion Modal */}
       <PromotionModal
@@ -215,16 +223,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 6,
   },
-  boardContainer: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#2b2313',
+  boardFrame: {
+    borderRadius: 12,
+    padding: 7,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.55,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  boardContainer: {
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.45)',
   },
   row: {
     flexDirection: 'row',
