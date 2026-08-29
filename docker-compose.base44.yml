@@ -1,0 +1,56 @@
+# Base44 development environment for Royal Chess Online.
+# Frontend: Expo (React Native) web dev server  -> host port 3000
+# Backend:  FastAPI + MongoDB                    -> host port 8000
+# Auth uses Bearer tokens (Authorization header), not cookies, so the two origins
+# work cleanly with the backend's existing CORS allow_origins=["*"].
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      - MONGO_URL=mongodb://mongo:27017
+      - DB_NAME=chess_arena
+      - JWT_SECRET=base44_dev_jwt_secret_2025
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: sh -c "pip install --no-cache-dir -r requirements.base44.txt && uvicorn server:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app"
+
+  web:
+    image: node:22-bookworm
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    environment:
+      # Public URL of the API as seen from the browser. EXPO_PUBLIC_* vars are
+      # inlined by Metro at bundle time, so this must be set in the container.
+      - EXPO_PUBLIC_BACKEND_URL=https://8000-${BASE44_PUBLIC_HOST_SUFFIX}
+      # Preview origin, used by app.config.js to allowlist it in Expo's dev CORS middleware.
+      - EXPO_BASE44_PREVIEW_ORIGIN=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - EXPO_NO_TELEMETRY=1
+    ports:
+      - "3000:8081"
+    depends_on:
+      - api
+    command: sh -c "yarn install --frozen-lockfile && npx expo start --web --port 8081 --host lan"
+
+volumes:
+  mongo_data:
+  web_node_modules:
