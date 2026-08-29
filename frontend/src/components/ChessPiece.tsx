@@ -26,22 +26,51 @@ const PIECE_SVGS: Record<string, string> = {
   bk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linejoin="miter" d="M22.5 11.6V6"/><path fill="#000" stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path fill="#000" d="M11.5 37a22.3 22.3 0 0 0 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10z"/><path stroke-linejoin="miter" d="M20 8h5"/><path stroke="#ececec" d="M32 29.5s8.5-4 6-9.7C34.1 14 25 18 22.5 24.6v2.1-2.1C20 18 9.9 14 7 19.9c-2.5 5.6 4.8 9 4.8 9"/><path stroke="#ececec" d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>',
 };
 
-// Subtle tone variation per piece theme (keeps clean Staunton look on every board).
-const TONES: Record<string, { light: string; dark: string }> = {
-  classic: { light: '#f7f4ec', dark: '#2b2b2b' },
-  luxury: { light: '#f3e3b8', dark: '#20180d' },
-  modern: { light: '#ffffff', dark: '#12161f' },
+// Polished material gradient stops per piece theme — gives each Staunton silhouette
+// a subtle top-lit 3D volume (ivory/cream for white, deep ebony for black) instead
+// of a flat fill. No metallic/neon tints.
+const PIECE_GRADIENTS: Record<string, { w: [string, number][]; b: [string, number][] }> = {
+  classic: {
+    w: [['#fcf8ee', 0], ['#f3ead0', 0.5], ['#e4d2a4', 1]],
+    b: [['#3c3c3c', 0], ['#1c1c1c', 0.5], ['#0a0a0a', 1]],
+  },
+  luxury: {
+    w: [['#f8ecc8', 0], ['#e8cf94', 0.5], ['#d2af6c', 1]],
+    b: [['#2c2013', 0], ['#1a130a', 0.5], ['#0c0805', 1]],
+  },
+  modern: {
+    w: [['#ffffff', 0], ['#f2f2f2', 0.5], ['#e1e1e1', 1]],
+    b: [['#454545', 0], ['#232323', 0.5], ['#0c0c0c', 1]],
+  },
 };
+
+// Soft radial contact shadow drawn beneath each piece so it reads as physically
+// placed on the board (not floating).
+const SHADOW_DEFS =
+  '<radialGradient id="pieceShadow" cx="0.5" cy="0.5" r="0.5">' +
+  '<stop offset="0" stop-color="#000" stop-opacity="0.28"/>' +
+  '<stop offset="0.7" stop-color="#000" stop-opacity="0.12"/>' +
+  '<stop offset="1" stop-color="#000" stop-opacity="0"/>' +
+  '</radialGradient>';
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, theme = 'classic' }) => {
   const xml = useMemo(() => {
     const key = `${color}${type}`;
     let svg = PIECE_SVGS[key] || PIECE_SVGS[`${color}p`];
-    const tone = TONES[theme] || TONES.classic;
+    const grad = PIECE_GRADIENTS[theme] || PIECE_GRADIENTS.classic;
+    const stops = grad[color];
+    const gradId = color === 'w' ? 'wpFill' : 'bpFill';
+    const stopsXml = stops.map(([c, o]) => `<stop offset="${o}" stop-color="${c}"/>`).join('');
+    // One vertical light direction across the whole piece (userSpaceOnUse) for a
+    // cohesive "lit from above" look, plus the contact shadow ellipse at the base.
+    const defs =
+      `<defs><linearGradient id="${gradId}" x1="18" y1="3" x2="27" y2="43" gradientUnits="userSpaceOnUse">${stopsXml}</linearGradient>${SHADOW_DEFS}</defs>` +
+      `<ellipse cx="22.5" cy="40.5" rx="12" ry="2.3" fill="url(#pieceShadow)"/>`;
+    svg = svg.replace('viewBox="0 0 45 45">', `viewBox="0 0 45 45">${defs}`);
     if (color === 'w') {
-      svg = svg.split('fill="#fff"').join(`fill="${tone.light}"`);
+      svg = svg.split('fill="#fff"').join(`fill="url(#${gradId})"`);
     } else {
-      svg = svg.split('fill="#000"').join(`fill="${tone.dark}"`);
+      svg = svg.split('fill="#000"').join(`fill="url(#${gradId})"`);
     }
     return svg;
   }, [type, color, theme]);
@@ -57,10 +86,10 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    // Soft drop shadow to give the flat vectors subtle depth like a real set.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 1.5,
+    // Soft drop shadow + the in-SVG contact shadow give the pieces real depth.
+    shadowColor: '#1a1208',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.42,
+    shadowRadius: 2.2,
   },
 });
