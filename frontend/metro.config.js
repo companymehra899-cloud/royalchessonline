@@ -2,6 +2,7 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const path = require('path');
 const { FileStore } = require('metro-cache');
+const http = require('http');
 
 const config = getDefaultConfig(__dirname);
 
@@ -21,5 +22,32 @@ config.cacheStores = [
 
 // Reduce the number of workers to decrease resource usage
 config.maxWorkers = 2;
+
+const BACKEND_TARGET = process.env.EXPO_PUBLIC_BACKEND_TARGET || 'http://127.0.0.1:8000';
+
+const proxyHandler = (req, res) => {
+  const backendUrl = new URL(BACKEND_TARGET);
+  const proxyReq = http.request({
+    hostname: backendUrl.hostname,
+    port: backendUrl.port,
+    path: req.url,
+    method: req.method,
+    headers: { ...req.headers, host: backendUrl.host },
+  }, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (err) => {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Backend unreachable', detail: err.message }));
+  });
+  req.pipe(proxyReq);
+};
+
+config.server = config.server || {};
+config.server.enhanceMiddleware = (middleware) => (req, res, next) => {
+  if (req.url.startsWith('/api/')) return proxyHandler(req, res);
+  return middleware(req, res, next);
+};
 
 module.exports = config;
