@@ -30,7 +30,9 @@ db_name = os.environ.get('DB_NAME', 'test_database')
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'chess_arena_secret_luxury_key_2025')
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    raise ValueError('JWT_SECRET environment variable is not set!')
 JWT_ALGORITHM = "HS256"
 
 # --- League / Rewards configuration (prizes claimed EXTERNALLY, no in-app payment) ---
