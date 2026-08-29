@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { soundManager } from '../utils/audio';
 import { GameMode, AIDifficulty } from '../types/chess';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const ROOM_POLL_MS = 2000;
 
 interface MatchScreenProps {
   mode: GameMode;
@@ -59,6 +60,13 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
   // Move confirm pending move
   const [pendingConfirmMove, setPendingConfirmMove] = useState<{ from: string; to: string; promotion?: string } | null>(null);
 
+  // Online room sync state
+  const [myColor, setMyColor] = useState<'w' | 'b' | null>(null);
+  const [opponentName, setOpponentName] = useState('Online Opponent');
+  const [opponentRating, setOpponentRating] = useState<number | null>(null);
+  const [roomStatus, setRoomStatus] = useState<'waiting' | 'active' | 'completed'>('active');
+  const appliedMovesRef = useRef(0);
+
   const timerRef = useRef<any>(null);
 
   // Clock timer countdown
@@ -66,10 +74,11 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     if (gameOver) return;
 
     timerRef.current = setInterval(() => {
-      if (game.turn() === 'w') {
+      const isMyTurn = mode === 'online' ? game.turn() === (myColor || 'w') : game.turn() === 'w';
+      if (isMyTurn) {
         setPlayerTime((prev) => {
           if (prev <= 1) {
-            handleTimeout('w');
+            handleTimeout(myColor || 'w');
             return 0;
           }
           return prev - 1;
@@ -77,7 +86,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       } else {
         setOpponentTime((prev) => {
           if (prev <= 1) {
-            handleTimeout('b');
+            handleTimeout(myColor === 'w' ? 'b' : 'w');
             return 0;
           }
           return prev - 1;
@@ -86,10 +95,11 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [game, gameOver]);
+  }, [game, gameOver, myColor, mode]);
 
   const handleTimeout = (timedOutColor: 'w' | 'b') => {
-    const result = timedOutColor === 'w' ? 'loss' : 'win';
+    const mySide = mode === 'online' ? (myColor || 'w') : 'w';
+    const result = timedOutColor === mySide ? 'loss' : 'win';
     finishGame(result, 'Time Out');
   };
 
@@ -99,6 +109,105 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       makeAiMove();
     }
   }, [fen, gameOver]);
+
+  // Online room sync — poll the shared room, apply opponent moves, sync result
+  const fetchRoomState = useCallback(async () => {
+    if (mode !== 'online' || !roomCode) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/online/rooms/${roomCode}`);
+      if (!res.ok) return;
+      const room = await res.json();
+
+      // Determine my color once, using the authenticated user id
+      if (!myColor) {
+        const whiteId = room.white_player?.id;
+        const blackId = room.black_player?.id;
+        if (user?.id && whiteId === user.id) {
+          setMyColor('w');
+          setOpponentName(room.black_player?.name || 'Online Opponent');
+          setOpponentRating(room.black_player?.rating ?? null);
+        } else if (user?.id && blackId === user.id) {
+          setMyColor('b');
+          setOpponentName(room.white_player?.name || 'Online Opponent');
+          setOpponentRating(room.white_player?.rating ?? null);
+        } else {
+          setMyColor('w');
+        }
+      }
+
+      // Sync clocks from the server's authoritative values
+      if (typeof room.white_time === 'number' && typeof room.black_time === 'number') {
+        const mine = myColor === 'b' ? room.black_time : room.white_time;
+        const theirs = myColor === 'b' ? room.white_time : room.black_time;
+        setPlayerTime(mine);
+        setOpponentTime(theirs);
+      }
+
+      // Apply any moves the opponent made (beyond what we've applied locally)
+      const history = room.move_history || [];
+      if (history.length > appliedMovesRef.current) {
+        const newMoves = history.slice(appliedMovesRef.current);
+        newMoves.forEach((m: { from: string; to: string; san?: string }) => {
+          applyServerMove(m.from, m.to);
+        });
+        appliedMovesRef.current = history.length;
+      }
+
+      // Server decided the game ended (checkmate / draw / resignation / timeout)
+      if (room.status === 'completed' && !gameOver) {
+        handleServerGameOver(room);
+      }
+
+      setRoomStatus(room.status || 'active');
+    } catch (e) {
+      // Silent — polling retries naturally
+    }
+  }, [mode, roomCode, myColor, user?.id, gameOver]);
+
+  useEffect(() => {
+    if (mode !== 'online' || !roomCode) return;
+    fetchRoomState();
+    const interval = setInterval(fetchRoomState, ROOM_POLL_MS);
+    return () => clearInterval(interval);
+  }, [mode, roomCode, fetchRoomState]);
+
+  const applyServerMove = (from: string, to: string, promotion?: string) => {
+    try {
+      const moveResult = game.move({ from, to, promotion: promotion || 'q' });
+      if (!moveResult) return;
+      setLastMove({ from, to });
+      setHintMove(null);
+      setHintText(null);
+      setFen(game.fen());
+      setMoveHistory((prev) => [...prev, { from, to, san: moveResult.san }]);
+      if (moveResult.captured) {
+        soundManager.playCapture();
+      } else if (game.inCheck()) {
+        soundManager.playCheck();
+      } else {
+        soundManager.playMove();
+      }
+    } catch (e) {
+      console.log('Apply server move error:', e);
+    }
+  };
+
+  const handleServerGameOver = (room: any) => {
+    const winner = room.winner; // 'white' | 'black' | 'draw'
+    const mySide = myColor || 'w';
+    let result: 'win' | 'loss' | 'draw' = 'draw';
+    if (winner === 'white') result = mySide === 'w' ? 'win' : 'loss';
+    else if (winner === 'black') result = mySide === 'b' ? 'win' : 'loss';
+
+    const reasonMap: Record<string, string> = {
+      checkmate: 'Checkmate',
+      resignation: 'Resignation',
+      timeout: 'Time Out',
+      stalemate: 'Draw by Stalemate',
+      stalemate_or_draw: 'Draw by Stalemate / Repetition',
+    };
+    finishGame(result, reasonMap[room.end_reason] || 'Game Over');
+  };
 
   const makeAiMove = async () => {
     setIsAiThinking(true);
@@ -198,8 +307,13 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
         },
         body: JSON.stringify({
           mode,
-          opponent_name: mode === 'computer' ? `Computer (${difficulty.toUpperCase()})` : 'Friend',
-          player_color: 'white',
+          opponent_name:
+            mode === 'computer'
+              ? `Computer (${difficulty.toUpperCase()})`
+              : mode === 'online'
+              ? opponentName
+              : 'Friend',
+          player_color: mode === 'online' ? (myColor === 'b' ? 'black' : 'white') : 'white',
           result,
           reason,
           moves_count: moveHistory.length + 1,
@@ -213,12 +327,58 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
   };
 
   const handleUserMove = (mv: { from: string; to: string; promotion?: string }) => {
+    if (mode === 'online') {
+      // Only allow a move when it's this player's turn
+      if (!myColor || game.turn() !== myColor || gameOver) return;
+      postOnlineMove(mv);
+      return;
+    }
     if (mode === 'computer' && (game.turn() !== 'w' || isAiThinking)) return;
     executeMove(mv, false);
   };
 
+  const postOnlineMove = async (mv: { from: string; to: string; promotion?: string }) => {
+    if (!roomCode) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/online/rooms/${roomCode}/move`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          from_sq: mv.from,
+          to_sq: mv.to,
+          promotion: mv.promotion || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Apply any server-confirmed moves we haven't applied yet (my own + any missed)
+        const history = data.move_history || [];
+        if (history.length > appliedMovesRef.current) {
+          const newMoves = history.slice(appliedMovesRef.current);
+          newMoves.forEach((m: { from: string; to: string; uci?: string }) => {
+            const promo = m.uci && m.uci.length === 5 ? m.uci[4] : undefined;
+            applyServerMove(m.from, m.to, promo);
+          });
+          appliedMovesRef.current = history.length;
+        }
+        if (data.status === 'completed' && !gameOver) {
+          handleServerGameOver(data);
+        }
+      } else {
+        Alert.alert('Move Rejected', data.detail || 'Illegal move or not your turn.');
+      }
+    } catch (e) {
+      Alert.alert('Connection Error', 'Unable to reach the server. Please try again.');
+    }
+  };
+
   const handleUndo = () => {
     if (moveHistory.length === 0 || isAiThinking) return;
+    // Undo is disabled in online matches (server is the source of truth)
+    if (mode === 'online') return;
     // If vs computer, undo two moves (player + AI)
     if (mode === 'computer') {
       game.undo();
@@ -260,7 +420,19 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       {
         text: 'Resign',
         style: 'destructive',
-        onPress: () => finishGame('loss', 'Resignation'),
+        onPress: async () => {
+          if (mode === 'online' && roomCode) {
+            try {
+              await fetch(`${BACKEND_URL}/api/online/rooms/${roomCode}/resign`, {
+                method: 'POST',
+                headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              });
+            } catch (e) {
+              // Continue locally regardless — poll will also pick up the server result
+            }
+          }
+          finishGame('loss', 'Resignation');
+        },
       },
     ]);
   };
@@ -290,7 +462,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       ? `Computer (${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)})`
       : mode === 'friend'
       ? 'Friend (Local)'
-      : 'Online Opponent';
+      : opponentName;
 
   return (
     <View style={styles.container}>
@@ -320,9 +492,14 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
               <Text style={styles.playerName}>{opponentTitle}</Text>
               <View style={styles.greenDot} />
             </View>
-            {isAiThinking && (
+            {mode === 'online' ? (
+              <Text style={styles.userRatingSub}>
+                {opponentRating != null ? opponentRating : '...'}
+                {myColor && game.turn() !== myColor && !gameOver ? ' · your move' : ''}
+              </Text>
+            ) : isAiThinking ? (
               <Text style={styles.thinkingText}>Thinking move...</Text>
-            )}
+            ) : null}
           </View>
         </View>
         <View style={styles.timerBadge}>
@@ -338,11 +515,24 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
         pieceTheme={pieceTheme}
         lastMove={lastMove}
         hintMove={hintMove}
-        interactive={!gameOver && !isAiThinking}
+        flipped={mode === 'online' && myColor === 'b'}
+        interactive={
+          !gameOver &&
+          !isAiThinking &&
+          (mode !== 'online' || (roomStatus === 'active' && game.turn() === myColor))
+        }
         onMove={handleUserMove}
         confirmMoveEnabled={moveConfirm}
         onPendingMove={setPendingConfirmMove}
       />
+
+      {/* Waiting banner while an online opponent has not connected yet */}
+      {mode === 'online' && roomStatus === 'waiting' && (
+        <View style={styles.waitingBanner}>
+          <ActivityIndicator size="small" color={colors.gold} />
+          <Text style={styles.waitingBannerText}>Waiting for opponent to join...</Text>
+        </View>
+      )}
 
       {/* Hint Banner if active */}
       {!!hintText && (
@@ -540,6 +730,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
     marginVertical: 4,
+  },
+  waitingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    marginHorizontal: 16,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    marginVertical: 4,
+  },
+  waitingBannerText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginLeft: 8,
   },
   hintBannerText: {
     color: colors.goldLight,

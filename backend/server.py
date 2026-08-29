@@ -792,6 +792,131 @@ async def get_chat_messages(room_code: str):
         raise HTTPException(status_code=404, detail="Game room not found")
     return room.get("chat_messages", [])
 
+# ==========================================================================
+#  ONLINE RANDOM MATCHMAKING  (Quick Match)
+#  Queue is stored in `matchmaking_queue`: { user_id, username, rating,
+#  status: waiting|claimed|matched, room_code, color, created_at }.
+#  Polling-based, same architecture as room state / chat polling.
+# ==========================================================================
+
+MATCHMAKING_TIMEOUT_MINUTES = 5
+
+async def _cleanup_stale_matchmaking():
+    cutoff = _now() - timedelta(minutes=MATCHMAKING_TIMEOUT_MINUTES)
+    await db.matchmaking_queue.delete_many({
+        "status": "waiting",
+        "created_at": {"$lt": cutoff.isoformat()},
+    })
+
+async def _claim_waiting_opponent(exclude_user_id):
+    """Atomically claim the oldest waiting opponent (never self)."""
+    return await db.matchmaking_queue.find_one_and_update(
+        {"status": "waiting", "user_id": {"$ne": exclude_user_id}},
+        {"$set": {"status": "claimed"}},
+        sort=[("created_at", 1)],
+    )
+
+async def _build_matchmaking_room(player_a, player_b, time_minutes=10):
+    """Create an active room for two matched players. Returns (clean_room, color_map)."""
+    if random.choice([True, False]):
+        white_player = {"id": player_a["user_id"], "name": player_a.get("username", "Player"), "rating": player_a.get("rating", 1200)}
+        black_player = {"id": player_b["user_id"], "name": player_b.get("username", "Player"), "rating": player_b.get("rating", 1200)}
+        colors = {player_a["user_id"]: "white", player_b["user_id"]: "black"}
+    else:
+        white_player = {"id": player_b["user_id"], "name": player_b.get("username", "Player"), "rating": player_b.get("rating", 1200)}
+        black_player = {"id": player_a["user_id"], "name": player_a.get("username", "Player"), "rating": player_a.get("rating", 1200)}
+        colors = {player_a["user_id"]: "black", player_b["user_id"]: "white"}
+
+    room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    room_doc = {
+        "room_code": room_code,
+        "status": "active",
+        "fen": chess.STARTING_FEN,
+        "turn": "w",
+        "white_player": white_player,
+        "black_player": black_player,
+        "time_seconds": time_minutes * 60,
+        "white_time": time_minutes * 60,
+        "black_time": time_minutes * 60,
+        "last_move": None,
+        "move_history": [],
+        "winner": None,
+        "end_reason": None,
+        "created_at": _now().isoformat(),
+    }
+    await db.rooms.insert_one(room_doc)
+    return {k: v for k, v in room_doc.items() if k != "_id"}, colors
+
+@api_router.post("/online/matchmaking/join")
+async def matchmaking_join(req: CreateRoomRequest, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    user_id = current_user.get("id") if current_user else "guest_" + uuid.uuid4().hex[:6]
+    username = current_user.get("username") if current_user else "Player 1"
+    user_rating = current_user.get("rating", 1200) if current_user else 1200
+    time_minutes = req.time_minutes or 10
+
+    await _cleanup_stale_matchmaking()
+    # Idempotent: clear any existing queue entry for this user
+    await db.matchmaking_queue.delete_many({"user_id": user_id})
+
+    opponent = await _claim_waiting_opponent(user_id)
+    if opponent:
+        me = {"user_id": user_id, "username": username, "rating": user_rating}
+        room, colors = await _build_matchmaking_room(opponent, me, time_minutes)
+        # Notify the waiting player via their queue entry
+        await db.matchmaking_queue.update_one(
+            {"user_id": opponent["user_id"]},
+            {"$set": {"status": "matched", "room_code": room["room_code"], "color": colors[opponent["user_id"]]}},
+        )
+        return {
+            "status": "matched",
+            "room_code": room["room_code"],
+            "color": colors[user_id],
+            "opponent": {"id": opponent["user_id"], "name": opponent.get("username", "Player"), "rating": opponent.get("rating", 1200)},
+            "room": room,
+        }
+
+    # No opponent yet — enqueue and wait for a match
+    await db.matchmaking_queue.insert_one({
+        "user_id": user_id,
+        "username": username,
+        "rating": user_rating,
+        "status": "waiting",
+        "room_code": None,
+        "color": None,
+        "created_at": _now().isoformat(),
+    })
+    return {"status": "waiting"}
+
+@api_router.get("/online/matchmaking/status")
+async def matchmaking_status(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    user_id = current_user.get("id") if current_user else "guest_" + uuid.uuid4().hex[:6]
+    entry = await db.matchmaking_queue.find_one({"user_id": user_id}, {"_id": 0})
+    if not entry:
+        return {"status": "idle"}
+    if entry.get("status") == "matched" and entry.get("room_code"):
+        room_code = entry["room_code"]
+        color = entry.get("color", "white")
+        room = await db.rooms.find_one({"room_code": room_code}, {"_id": 0})
+        opponent = None
+        if room:
+            white = room.get("white_player") or {}
+            black = room.get("black_player") or {}
+            opponent = black if color == "white" else white
+        # Consume the entry so a later join starts fresh
+        await db.matchmaking_queue.delete_many({"user_id": user_id})
+        return {"status": "matched", "room_code": room_code, "color": color, "opponent": opponent, "room": room}
+    if entry.get("status") == "claimed":
+        # Opponent never finished pairing — reset
+        await db.matchmaking_queue.delete_many({"user_id": user_id})
+        return {"status": "idle"}
+    return {"status": "waiting"}
+
+@api_router.post("/online/matchmaking/cancel")
+async def matchmaking_cancel(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    user_id = current_user.get("id") if current_user else "guest_" + uuid.uuid4().hex[:6]
+    await db.matchmaking_queue.delete_many({"user_id": user_id})
+    return {"success": True}
+
 # Define Models
 class StatusCheck(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

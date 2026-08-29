@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const MATCHMAKING_POLL_MS = 2000;
 
 interface OnlineModalProps {
   visible: boolean;
@@ -23,10 +24,106 @@ interface OnlineModalProps {
 
 export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onStartGame }) => {
   const { token } = useAuth();
-  const [modeTab, setModeTab] = useState<'create' | 'join'>('create');
+  const [modeTab, setModeTab] = useState<'quick' | 'create' | 'join'>('quick');
   const [joinCode, setJoinCode] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Quick match state
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const pollRef = useRef<any>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const cancelQuickMatch = async () => {
+    stopPolling();
+    setSearching(false);
+    setSearchError(null);
+    try {
+      await fetch(`${BACKEND_URL}/api/online/matchmaking/cancel`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+    } catch (e) {
+      // Silent — polling cleanup matters more than the cancel ack
+    }
+  };
+
+  const handleMatchFound = (roomCode: string) => {
+    stopPolling();
+    setSearching(false);
+    onClose();
+    onStartGame(roomCode);
+  };
+
+  const startQuickMatch = async () => {
+    setSearchError(null);
+    setSearching(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/online/matchmaking/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ color_preference: 'random', time_minutes: 10 }),
+      });
+      const data = await res.json();
+
+      if (data.status === 'matched' && data.room_code) {
+        handleMatchFound(data.room_code);
+        return;
+      }
+
+      if (data.status === 'waiting') {
+        // Poll for a match until an opponent joins
+        pollRef.current = setInterval(async () => {
+          try {
+            const sRes = await fetch(`${BACKEND_URL}/api/online/matchmaking/status`, {
+              headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            });
+            const sData = await sRes.json();
+            if (sData.status === 'matched' && sData.room_code) {
+              handleMatchFound(sData.room_code);
+            }
+          } catch (e) {
+            // Keep polling — transient network errors retry naturally
+          }
+        }, MATCHMAKING_POLL_MS);
+      } else {
+        setSearchError('Matchmaking is unavailable right now. Please try again.');
+        setSearching(false);
+      }
+    } catch (e) {
+      setSearchError('Unable to connect. Please check your connection and retry.');
+      setSearching(false);
+    }
+  };
+
+  // Reset + auto-start quick match each time the modal opens
+  useEffect(() => {
+    if (visible) {
+      setModeTab('quick');
+      setCreatedRoomCode(null);
+      setJoinCode('');
+      setSearchError(null);
+      startQuickMatch();
+    }
+    return () => stopPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  const switchTab = (tab: 'quick' | 'create' | 'join') => {
+    if (tab !== 'quick') cancelQuickMatch();
+    setModeTab(tab);
+    setCreatedRoomCode(null);
+  };
 
   const handleCreateRoom = async () => {
     setLoading(true);
@@ -79,13 +176,56 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
     }
   };
 
+  const renderQuickMatch = () => {
+    if (searching) {
+      return (
+        <View style={styles.tabContent}>
+          <View style={styles.searchRing}>
+            <ActivityIndicator size="large" color={colors.gold} />
+          </View>
+          <Text style={styles.searchTitle}>SEARCHING FOR OPPONENT</Text>
+          <Text style={styles.searchSub}>Finding a random online player...</Text>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            testID="quick-match-cancel"
+            onPress={cancelQuickMatch}
+          >
+            <MaterialCommunityIcons name="close" size={16} color={colors.textPrimary} />
+            <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        <MaterialCommunityIcons name="sword-cross" size={48} color={colors.gold} style={{ marginBottom: 12 }} />
+        <Text style={styles.actionDesc}>
+          Jump straight into a random match against another online player. First move wins the pairing.
+        </Text>
+        {!!searchError && <Text style={styles.searchError}>{searchError}</Text>}
+        <TouchableOpacity
+          style={styles.actionBtn}
+          testID="quick-match-button"
+          onPress={startQuickMatch}
+        >
+          {loading ? (
+            <ActivityIndicator color="#0b0e14" />
+          ) : (
+            <Text style={styles.actionBtnText}>FIND OPPONENT</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.modalHeader}>
             <Text style={styles.title}>PLAY ONLINE</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} testID="online-modal-close">
               <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -93,23 +233,28 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
           {/* Segmented Tab */}
           <View style={styles.tabRow}>
             <TouchableOpacity
+              style={[styles.tabBtn, modeTab === 'quick' && styles.tabBtnActive]}
+              onPress={() => switchTab('quick')}
+            >
+              <Text style={[styles.tabText, modeTab === 'quick' && styles.tabTextActive]}>QUICK MATCH</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.tabBtn, modeTab === 'create' && styles.tabBtnActive]}
-              onPress={() => {
-                setModeTab('create');
-                setCreatedRoomCode(null);
-              }}
+              onPress={() => switchTab('create')}
             >
               <Text style={[styles.tabText, modeTab === 'create' && styles.tabTextActive]}>CREATE ROOM</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabBtn, modeTab === 'join' && styles.tabBtnActive]}
-              onPress={() => setModeTab('join')}
+              onPress={() => switchTab('join')}
             >
               <Text style={[styles.tabText, modeTab === 'join' && styles.tabTextActive]}>JOIN ROOM</Text>
             </TouchableOpacity>
           </View>
 
-          {modeTab === 'create' ? (
+          {modeTab === 'quick' ? (
+            renderQuickMatch()
+          ) : modeTab === 'create' ? (
             <View style={styles.tabContent}>
               {createdRoomCode ? (
                 <View style={styles.createdBox}>
@@ -227,7 +372,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabTextActive: {
@@ -310,5 +455,50 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     paddingVertical: 12,
     marginBottom: 16,
+  },
+  searchRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#1b2333',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  searchTitle: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+  searchSub: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginBottom: 18,
+  },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  cancelBtnText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginLeft: 6,
+  },
+  searchError: {
+    color: colors.danger,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });
