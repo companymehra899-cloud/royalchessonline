@@ -120,9 +120,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   return (
     <View style={styles.boardWrapper}>
       <LinearGradient
-        colors={['#5a4222', '#3a2c14', '#5a4222']}
+        colors={['#d9b897', '#c4a276', '#d9b897']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={styles.boardFrame}
       >
       <View style={[styles.boardContainer, { width: SQUARE_SIZE * 8, height: SQUARE_SIZE * 8 }]}>
@@ -224,19 +224,21 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   boardFrame: {
-    borderRadius: 12,
-    padding: 7,
+    borderRadius: 10,
+    padding: 9,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(120, 90, 50, 0.4)',
   },
   boardContainer: {
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(120, 90, 50, 0.35)',
   },
   row: {
     flexDirection: 'row',

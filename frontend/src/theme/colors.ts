@@ -32,10 +32,10 @@ export const colors = {
   boards: {
     wood: {
       name: 'Wood',
-      light: '#EAD9B0',
-      dark: '#A87444',
-      highlight: 'rgba(212, 175, 55, 0.55)',
-      selected: 'rgba(245, 158, 11, 0.7)'
+      light: '#F2E8D9',
+      dark: '#262626',
+      highlight: 'rgba(212, 175, 55, 0.45)',
+      selected: 'rgba(245, 158, 11, 0.6)'
     },
     green: {
       name: 'Classic Green',
