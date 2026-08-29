@@ -10,143 +10,145 @@ interface ChessPieceProps {
 }
 
 // ---------------------------------------------------------------------------
-// Minimalist polished chess pieces matching the user's reference image.
+// Staunton-style chess pieces matching the user's reference image.
 //
 // Design language:
-//   • Off-white cream / solid matte black bodies — smooth, slightly rounded.
-//   • No felt base — clean wide pedestal instead.
-//   • Soft 3D shading via subtle gradients (upper-left light source).
-//   • Thin darker outlines for crisp silhouettes on both square colors.
-//   • High-profile, elegant proportions.
-//
-// Each instance gets a unique id prefix so SVG gradient ids never collide.
+//   • Cream / matte charcoal bodies — soft, diffused shading (no gloss).
+//   • Vibrant green felt base (#2D5A27) visible at bottom of every piece.
+//   • Classic Staunton proportions: King tallest, Pawn shortest.
+//   • Upper-left soft light source — gentle highlights, no harsh shadows.
+//   • Thin darker outlines for crisp silhouettes.
 // ---------------------------------------------------------------------------
 
 type Palette = { light: string; mid: string; dark: string; edge: string };
 
 const WHITE_PALETTES: Record<string, Palette> = {
-  classic: { light: '#FAF3E6', mid: '#EFE3CC', dark: '#D6C6A8', edge: '#A89172' },
-  luxury:  { light: '#FBF2DC', mid: '#E8D6B0', dark: '#CBB582', edge: '#9A8050' },
+  classic: { light: '#F7F0E3', mid: '#EBE2D0', dark: '#D4C8B0', edge: '#9C8E70' },
+  luxury:  { light: '#F9F2DC', mid: '#EBDDB8', dark: '#CDB982', edge: '#9A8050' },
   modern:  { light: '#FFFFFF', mid: '#EBEDF1', dark: '#D0D4DC', edge: '#9CA4B0' },
 };
 
 const BLACK_PALETTES: Record<string, Palette> = {
-  classic: { light: '#3A3A3A', mid: '#262626', dark: '#161616', edge: '#0A0A0A' },
+  classic: { light: '#4A4A4A', mid: '#383838', dark: '#232323', edge: '#0E0E0E' },
   luxury:  { light: '#3E3326', mid: '#2A1D12', dark: '#1A1208', edge: '#0D0804' },
   modern:  { light: '#444450', mid: '#2C2C36', dark: '#1A1A22', edge: '#0A0A12' },
 };
 
+const FELT = '#2D5A27';
+const FELT_DARK = '#1E3D1A';
+
 function buildDefs(uid: string, p: Palette): string {
   return `<defs>
+    <radialGradient id="${uid}-felt" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="${FELT}"/>
+      <stop offset="100%" stop-color="${FELT_DARK}"/>
+    </radialGradient>
     <linearGradient id="${uid}-cyl" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="${p.dark}"/>
-      <stop offset="25%" stop-color="${p.light}"/>
+      <stop offset="28%" stop-color="${p.light}"/>
       <stop offset="55%" stop-color="${p.mid}"/>
       <stop offset="100%" stop-color="${p.dark}"/>
     </linearGradient>
     <radialGradient id="${uid}-ball" cx="35%" cy="28%" r="80%">
       <stop offset="0%" stop-color="${p.light}"/>
-      <stop offset="50%" stop-color="${p.mid}"/>
+      <stop offset="52%" stop-color="${p.mid}"/>
       <stop offset="100%" stop-color="${p.dark}"/>
     </radialGradient>
-    <linearGradient id="${uid}-shade" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="${p.light}" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="${p.dark}" stop-opacity="0.3"/>
-    </linearGradient>
   </defs>`;
 }
 
 const SW = 0.5;
 
-/** Wide pedestal base shared by all pieces — no felt, just smooth body. */
+/** Green felt base + wide pedestal — Staunton style. */
 function pieceBase(uid: string, p: Palette): string {
   return `
-    <ellipse cx="22.5" cy="40.5" rx="12" ry="2.5" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M11 40.5 Q11 37.5 22.5 37 Q34 37.5 34 40.5 L34 40.5 Q34 38.8 22.5 38.8 Q11 38.8 11 40.5 Z"
+    <ellipse cx="22.5" cy="41.5" rx="11.5" ry="2.2" fill="url(#${uid}-felt)"/>
+    <path d="M11.5 41.5 Q11.5 38.8 22.5 38.2 Q33.5 38.8 33.5 41.5 Q33.5 40 22.5 40 Q11.5 40 11.5 41.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <ellipse cx="22.5" cy="37" rx="10" ry="1.5" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="38.2" rx="10" ry="1.5" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
   `;
 }
 
-// ---- Per-piece upper bodies ------------------------------------------------
+// ---- Per-piece upper bodies (Staunton proportions) ------------------------
 
 function pawnTop(uid: string, p: Palette): string {
   return `
-    <path d="M19.5 37 L18.5 31 Q18.5 28.5 22.5 28 Q26.5 28.5 26.5 31 L25.5 37 Z"
+    <path d="M19.5 38.2 L18.8 32 Q18.8 29.5 22.5 29 Q26.2 29.5 26.2 32 L25.5 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <circle cx="22.5" cy="24" r="7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <ellipse cx="22.5" cy="32" rx="6.5" ry="1.2" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="22.5" cy="25.5" r="6.5" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
   `;
 }
 
 function rookTop(uid: string, p: Palette): string {
   return `
-    <path d="M15.5 37 L15.5 25 Q15.5 23.5 17 23.5 L28 23.5 Q29.5 23.5 29.5 25 L29.5 37 Z"
+    <path d="M15.5 38.2 L15.5 26 Q15.5 24.5 17 24.5 L28 24.5 Q29.5 24.5 29.5 26 L29.5 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <ellipse cx="22.5" cy="23.5" rx="7.5" ry="1.4" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M16.5 23.5 L16.5 20 L19 20 L19 21.8 L21 21.8 L21 20 L24 20 L24 21.8 L26 21.8 L26 20 L28.5 20 L28.5 23.5 Z"
+    <ellipse cx="22.5" cy="24.5" rx="7.5" ry="1.4" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M16.5 24.5 L16.5 21 L19 21 L19 22.8 L21 22.8 L21 21 L24 21 L24 22.8 L26 22.8 L26 21 L28.5 21 L28.5 24.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
-    <ellipse cx="22.5" cy="28" rx="6.8" ry="0.8" fill="${p.dark}" opacity="0.15"/>
+    <ellipse cx="22.5" cy="29" rx="6.8" ry="0.7" fill="${p.dark}" opacity="0.12"/>
   `;
 }
 
 function bishopTop(uid: string, p: Palette): string {
   return `
-    <path d="M19 37 L18 29 Q18 26.5 22.5 26 Q27 26.5 27 29 L26 37 Z"
+    <path d="M19 38.2 L18.2 30 Q18.2 27.5 22.5 27 Q26.8 27.5 26.8 30 L26 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <ellipse cx="22.5" cy="26.3" rx="6.5" ry="1.2" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M16.8 26.5 Q16.8 20.5 22.5 15.5 Q28.2 20.5 28.2 26.5 Z"
+    <ellipse cx="22.5" cy="27.3" rx="6.3" ry="1.2" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M16.5 27.5 Q16.5 21 22.5 15.5 Q28.5 21 28.5 27.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M20.5 21 L24.5 19" stroke="${p.edge}" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M20 21.5 L25 19.5" stroke="${p.edge}" stroke-width="1" fill="none" stroke-linecap="round"/>
     <circle cx="22.5" cy="13.5" r="2" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
   `;
 }
 
 function knightTop(uid: string, p: Palette): string {
   return `
-    <path d="M19 37 C19 33 21 30 24 28.5 C27 27 29 24.5 29.5 22 C30 19.5 28.5 17.8 26 18.2 C24 18.5 22 20 20.5 22 C19 24 18.2 27.5 18.2 30.5 C18.2 33 18.5 35 19 37 Z"
+    <path d="M19 38.2 C19 34.5 21 31.5 24 30 C27 28.5 29 26 29.5 23.5 C30 21 28.5 19.2 26 19.5 C24 19.8 22 21.5 20.5 23.5 C19 25.5 18.2 28.5 18.2 31.5 C18.2 34 18.5 36 19 38.2 Z"
           fill="url(#${uid}-cyl)" opacity="0.95" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M13 37
-             C13 33.5 14 30.5 16 28.5
-             C13.5 27 11.5 25 11 22
-             C10.7 20.3 11.3 18.8 12.8 18.3
-             L14.5 19.8
-             L16 18.2
-             C17 19 17.5 20 17.2 22
-             C16.8 23.8 16 25.5 17 27
-             C18.5 28.5 20 31 20 34
-             C20 35.8 19 36.5 17.5 37 Z"
+    <path d="M13 38.2
+             C13 34.5 14 31.5 16 29.5
+             C13.5 28 11.5 25.5 11 22.5
+             C10.7 20.8 11.3 19.3 12.8 18.8
+             L14.5 20.3
+             L16 18.5
+             C17 19.3 17.5 20.3 17.2 22.5
+             C16.8 24.3 16 26 17 27.5
+             C18.5 29 20 31.5 20 34.5
+             C20 36.3 19 37.3 17.5 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
-    <circle cx="13.5" cy="23.5" r="0.8" fill="${p.edge}"/>
-    <path d="M14.5 20 L16.5 19" stroke="${p.edge}" stroke-width="0.5" opacity="0.4"/>
+    <circle cx="13.5" cy="24" r="0.8" fill="${p.edge}"/>
+    <path d="M14 20.5 L16.5 19.5" stroke="${p.edge}" stroke-width="0.5" opacity="0.35"/>
   `;
 }
 
 function queenTop(uid: string, p: Palette): string {
   return `
-    <path d="M18 37 L17.5 28 Q17.5 25.5 22.5 25 Q27.5 25.5 27.5 28 L27 37 Z"
+    <path d="M18 38.2 L17.5 29 Q17.5 26.5 22.5 26 Q27.5 26.5 27.5 29 L27 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <ellipse cx="22.5" cy="25.3" rx="7" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M16 25.5 Q16 19 22.5 15 Q29 19 29 25.5 Z"
+    <ellipse cx="22.5" cy="26.3" rx="7" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M16 26.5 Q16 20 22.5 15 Q29 20 29 26.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M16.8 25.5 L17.5 19 M19.5 25.5 L19.5 16.5 M22.5 25.5 L22.5 13.5 M25.5 25.5 L25.5 16.5 M28.2 25.5 L27.5 19"
-          stroke="url(#${uid}-cyl)" stroke-width="2.8" stroke-linecap="round" fill="none"/>
-    <circle cx="17.5" cy="18.5" r="1.8" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <circle cx="19.5" cy="16" r="1.8" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <circle cx="22.5" cy="13" r="2.2" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <circle cx="25.5" cy="16" r="1.8" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <circle cx="27.5" cy="18.5" r="1.8" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M16.8 26.5 L17.3 20 M19.5 26.5 L19.5 17 M22.5 26.5 L22.5 13.5 M25.5 26.5 L25.5 17 M28.2 26.5 L27.7 20"
+          stroke="url(#${uid}-cyl)" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <circle cx="17.3" cy="19.5" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="19.5" cy="16.5" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="22.5" cy="13" r="2" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="25.5" cy="16.5" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <circle cx="27.7" cy="19.5" r="1.7" fill="url(#${uid}-ball)" stroke="${p.edge}" stroke-width="${SW}"/>
   `;
 }
 
 function kingTop(uid: string, p: Palette): string {
   return `
-    <path d="M18 37 L17.5 28 Q17.5 25.5 22.5 25 Q27.5 25.5 27.5 28 L27 37 Z"
+    <path d="M18 38.2 L17.5 29 Q17.5 26.5 22.5 26 Q27.5 26.5 27.5 29 L27 38.2 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <ellipse cx="22.5" cy="25.3" rx="7.5" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M15.5 25.5 Q15.5 19 22.5 14.5 Q29.5 19 29.5 25.5 Z"
+    <ellipse cx="22.5" cy="26.3" rx="7.5" ry="1.3" fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
+    <path d="M15.5 26.5 Q15.5 19.5 22.5 14 Q29.5 19.5 29.5 26.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}"/>
-    <path d="M16.5 22 L28.5 22" stroke="${p.edge}" stroke-width="0.6" opacity="0.35"/>
-    <path d="M21.5 15 L21.5 12 L18.5 12 L18.5 10 L21.5 10 L21.5 7.5 L23.5 7.5 L23.5 10 L26.5 10 L26.5 12 L23.5 12 L23.5 15 Z"
+    <path d="M16.5 23 L28.5 23" stroke="${p.edge}" stroke-width="0.6" opacity="0.3"/>
+    <path d="M21.5 14.5 L21.5 11.5 L18.5 11.5 L18.5 9.5 L21.5 9.5 L21.5 7 L23.5 7 L23.5 9.5 L26.5 9.5 L26.5 11.5 L23.5 11.5 L23.5 14.5 Z"
           fill="url(#${uid}-cyl)" stroke="${p.edge}" stroke-width="${SW}" stroke-linejoin="round"/>
   `;
 }
