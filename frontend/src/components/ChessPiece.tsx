@@ -19,8 +19,10 @@ interface ChessPieceProps {
   theme?: 'classic' | 'luxury' | 'modern';
 }
 
-// Modern "3D vector" piece set. Each piece is drawn from layered gradients so it
-// reads as a glossy, sculpted piece instead of a flat silhouette.
+// Ultra-realistic 3D vector piece set. Each piece is built from the canonical
+// Staunton silhouettes (cburnett geometry, 45×45 viewBox) and shaded with layered
+// gradients + specular highlights so it reads as glossy sculpted marble with high
+// contrast lighting, smooth edges and a grounding contact shadow.
 interface PieceColors {
   bodyTop: string;
   bodyMid: string;
@@ -37,93 +39,96 @@ interface PieceColors {
 }
 
 const THEMES: Record<'classic' | 'luxury' | 'modern', Record<'w' | 'b', PieceColors>> = {
+  // Polished white/black marble — bright specular top, deep shadowed base.
   classic: {
     w: {
-      bodyTop: '#fefdfa',
-      bodyMid: '#f2ede1',
-      bodyBottom: '#c8bfa9',
+      bodyTop: '#ffffff',
+      bodyMid: '#f3efe4',
+      bodyBottom: '#cdc5b2',
       gloss: '#ffffff',
-      glossBody: 0.5,
-      glossAccent: 0.72,
-      stroke: '#5f584b',
-      detail: '#7a7264',
-      shade: 'rgba(70, 58, 38, 0.20)',
-      eye: '#3b3326',
-      accentTop: '#ede6d6',
-      accentBottom: '#b3a88f',
+      glossBody: 0.62,
+      glossAccent: 0.82,
+      stroke: '#6b6452',
+      detail: '#8a8270',
+      shade: 'rgba(70, 58, 38, 0.22)',
+      eye: '#5a4f3d',
+      accentTop: '#f7f3e9',
+      accentBottom: '#cbc1ac',
     },
     b: {
-      bodyTop: '#3c4148',
-      bodyMid: '#24272d',
-      bodyBottom: '#0a0b0d',
-      gloss: '#c3cbd6',
-      glossBody: 0.3,
-      glossAccent: 0.4,
+      bodyTop: '#52585f',
+      bodyMid: '#2a2e35',
+      bodyBottom: '#07090c',
+      gloss: '#aeb8c6',
+      glossBody: 0.34,
+      glossAccent: 0.46,
       stroke: '#000000',
-      detail: '#8b939f',
-      shade: 'rgba(220, 228, 238, 0.10)',
-      eye: '#c7cdd7',
-      accentTop: '#2c3036',
-      accentBottom: '#0d0e11',
+      detail: '#7c8898',
+      shade: 'rgba(200, 215, 235, 0.12)',
+      eye: '#c0cad6',
+      accentTop: '#40474f',
+      accentBottom: '#0b0d10',
     },
   },
+  // Gold-veined luxury marble.
   luxury: {
     w: {
-      bodyTop: '#fdf6e2',
-      bodyMid: '#efdca9',
-      bodyBottom: '#c49a45',
+      bodyTop: '#fffdf5',
+      bodyMid: '#f0e2bf',
+      bodyBottom: '#c9a852',
       gloss: '#fffbe8',
-      glossBody: 0.55,
-      glossAccent: 0.78,
+      glossBody: 0.6,
+      glossAccent: 0.8,
       stroke: '#7a5c14',
-      detail: '#8a6a1d',
-      shade: 'rgba(110, 75, 12, 0.24)',
-      eye: '#4a3a12',
-      accentTop: '#f6e2ae',
-      accentBottom: '#b6892f',
+      detail: '#9a7a2d',
+      shade: 'rgba(110, 75, 12, 0.26)',
+      eye: '#5a4515',
+      accentTop: '#f7e6b6',
+      accentBottom: '#b89034',
     },
     b: {
-      bodyTop: '#4b3920',
-      bodyMid: '#251a0d',
+      bodyTop: '#5a4a2a',
+      bodyMid: '#2c2110',
       bodyBottom: '#0a0603',
-      gloss: '#d4af37',
-      glossBody: 0.28,
-      glossAccent: 0.4,
-      stroke: '#000000',
-      detail: '#a0813a',
-      shade: 'rgba(214, 175, 55, 0.16)',
-      eye: '#cfa244',
-      accentTop: '#3a2c16',
-      accentBottom: '#100b04',
-    },
-  },
-  modern: {
-    w: {
-      bodyTop: '#ffffff',
-      bodyMid: '#eef1f6',
-      bodyBottom: '#b4becb',
-      gloss: '#ffffff',
-      glossBody: 0.55,
-      glossAccent: 0.78,
-      stroke: '#55606f',
-      detail: '#6a7687',
-      shade: 'rgba(50, 60, 82, 0.16)',
-      eye: '#3f4a5c',
-      accentTop: '#e8edf4',
-      accentBottom: '#a2aeba',
-    },
-    b: {
-      bodyTop: '#2c3547',
-      bodyMid: '#161c28',
-      bodyBottom: '#04060a',
-      gloss: '#7d8ca3',
+      gloss: '#e6c659',
       glossBody: 0.3,
       glossAccent: 0.42,
       stroke: '#000000',
-      detail: '#64748b',
-      shade: 'rgba(200, 215, 235, 0.10)',
-      eye: '#aab7c9',
-      accentTop: '#242c3d',
+      detail: '#b89244',
+      shade: 'rgba(214, 175, 55, 0.18)',
+      eye: '#e0b840',
+      accentTop: '#4a3a1e',
+      accentBottom: '#100b04',
+    },
+  },
+  // Cool contemporary marble.
+  modern: {
+    w: {
+      bodyTop: '#ffffff',
+      bodyMid: '#eef2f7',
+      bodyBottom: '#b8c2cf',
+      gloss: '#ffffff',
+      glossBody: 0.58,
+      glossAccent: 0.82,
+      stroke: '#5a6473',
+      detail: '#6f7b8c',
+      shade: 'rgba(50, 60, 82, 0.18)',
+      eye: '#475061',
+      accentTop: '#eaf0f6',
+      accentBottom: '#a6b2c0',
+    },
+    b: {
+      bodyTop: '#3a4458',
+      bodyMid: '#1a2030',
+      bodyBottom: '#05080d',
+      gloss: '#8b98ad',
+      glossBody: 0.32,
+      glossAccent: 0.44,
+      stroke: '#000000',
+      detail: '#6c7a92',
+      shade: 'rgba(200, 215, 235, 0.12)',
+      eye: '#b4c0d2',
+      accentTop: '#2e3648',
       accentBottom: '#090c12',
     },
   },
@@ -163,6 +168,16 @@ const detailLine = (d: string, color: string, width = 0.85, opacity = 0.6) => (
   <Path d={d} stroke={color} strokeWidth={width} strokeLinecap="round" fill="none" opacity={opacity} />
 );
 
+// Soft grounding shadow that sits beneath each piece (high-contrast lighting depth).
+const groundShadow = (cx: number, cy: number, rx: number, ry: number, shadowId: string) => (
+  <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={`url(#${shadowId})`} />
+);
+
+// Faint marble vein running down a piece body.
+const marbleVein = (d: string, color: string) => (
+  <Path d={d} stroke={color} strokeWidth={0.5} strokeLinecap="round" fill="none" opacity={0.16} />
+);
+
 const renderPiece = (
   type: string,
   c: PieceColors,
@@ -170,120 +185,150 @@ const renderPiece = (
   glossBody: string,
   accentId: string,
   glossAccent: string,
+  shadowId: string,
 ): ReactElement => {
   const GB = (node: ReactElement) => withGloss(node, glossBody, c.glossBody);
   const GA = (node: ReactElement) => withGloss(node, glossAccent, c.glossAccent);
 
   switch (type) {
     case 'p': {
-      const base = accentEllipse(22.5, 40.8, 8.4, 2.2, accentId, c.stroke);
-      const stem = bodyPath('M15.7 40.8 C15.7 34.4 16.9 27 18.4 22.9 C19.3 20.6 21.2 20 22.5 20.9 C23.8 20 25.7 20.6 26.6 22.9 C28.1 27 29.3 34.4 29.3 40.8 Z', bodyId, c.stroke);
-      const collar = accentEllipse(22.5, 21.6, 6.4, 1.5, accentId, c.stroke);
-      const neck = bodyPath('M17.7 21.6 C17.7 17.7 19.2 15.2 22.5 15.2 C25.8 15.2 27.3 17.7 27.3 21.6 Z', bodyId, c.stroke);
-      const head = accentCircle(22.5, 12.4, 5.1, accentId, c.stroke);
+      const shadow = groundShadow(22.5, 43, 7.5, 1.6, shadowId);
+      const body = bodyPath(
+        'm 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 H 34 C 34,31.58 29.59,27.09 26.59,26.03 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z',
+        bodyId,
+        c.stroke,
+      );
       return (
         <>
-          {base}{GA(base)}
-          {stem}{GB(stem)}
-          {collar}{GA(collar)}
-          {neck}{GB(neck)}
-          {head}{GA(head)}
+          {shadow}
+          {body}
+          {GB(body)}
         </>
       );
     }
 
     case 'r': {
-      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
-      const body = bodyPath('M14.9 40.8 C14.9 34.3 16 26.3 17.2 21.2 L27.8 21.2 C29 26.3 30.1 34.3 30.1 40.8 Z', bodyId, c.stroke);
-      const band = accentRect(14.4, 21.2, 16.2, 4.6, 1, accentId, c.stroke);
-      const lip = accentEllipse(22.5, 16.4, 7.6, 0.9, accentId, c.stroke);
-      const merlons = bodyPath('M14.4 21.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2 v4.8', bodyId, c.stroke);
+      const shadow = groundShadow(22.5, 42.5, 11, 1.7, shadowId);
+      const base = bodyPath('M 9,39 L 36,39 L 36,36 L 9,36 Z', bodyId, c.stroke);
+      const baseMid = bodyPath('M 12,36 L 12,32 L 33,32 L 33,36 Z', bodyId, c.stroke);
+      const flare = bodyPath('M 14,29.5 L 31,29.5 L 32.5,32 L 12.5,32 Z', bodyId, c.stroke);
+      const column = bodyPath('M 14,17 L 31,17 L 31,29.5 L 14,29.5 Z', bodyId, c.stroke);
+      const lip = bodyPath('M 11,14 L 34,14 L 31,17 L 14,17 Z', bodyId, c.stroke);
+      const merlons = bodyPath(
+        'M 11,14 L 11,9 L 15,9 L 15,11 L 20,11 L 20,9 L 25,9 L 25,11 L 30,11 L 30,9 L 34,9 L 34,14 Z',
+        bodyId,
+        c.stroke,
+      );
       return (
         <>
-          {base}{GA(base)}
-          {body}{GB(body)}
-          {band}{GA(band)}
-          {lip}{GA(lip)}
+          {shadow}
           {merlons}{GB(merlons)}
-          {detailLine('M15.4 30.5 h24.2 M16.2 25.5 h22.6', c.detail, 0.8, 0.5)}
+          {lip}{GB(lip)}
+          {column}{GB(column)}
+          {flare}{GB(flare)}
+          {baseMid}{GB(baseMid)}
+          {base}{GB(base)}
+          {marbleVein('M22,26 C20,23 24,21 22,18', c.detail)}
+          {detailLine('M 11,14 L 34,14 M 14,17 L 31,17 M 14,17 L 14,29.5 M 31,17 L 31,29.5 M 12.5,32 L 32.5,32', c.detail, 0.8, 0.5)}
         </>
       );
     }
 
     case 'n': {
-      const base = accentEllipse(26.5, 39.2, 12.5, 2.1, accentId, c.stroke);
-      const head = bodyPath('M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21', bodyId, c.stroke);
+      const shadow = groundShadow(24, 42.5, 12.5, 1.7, shadowId);
+      const head = bodyPath('M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18', bodyId, c.stroke);
       const mane = (
         <Path
-          d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4.003 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-.994-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-1.992 2.5-3c1 0 1 3 1 3"
+          d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10"
           fill={c.shade}
         />
       );
       return (
         <>
-          {base}{GA(base)}
+          {shadow}
           {head}{GB(head)}
           {mane}
-          <Circle cx={9.5} cy={25.5} r={0.8} fill={c.eye} />
-          <Circle cx={14.4} cy={15.9} r={0.8} fill={c.eye} />
+          <Circle cx={9.5} cy={25.5} r={0.7} fill={c.eye} />
+          <Circle cx={14.3} cy={15.5} r={0.7} fill={c.eye} />
         </>
       );
     }
 
     case 'b': {
-      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
-      const body = bodyPath('M15.2 40.8 C15.2 35.6 16 30.9 17.3 27.1 C18.1 24.8 19.8 23.2 21.8 22.5 C21.2 21.8 20.9 20.9 21.1 20 C20.1 19.3 19.6 18 20 16.9 C20.3 15.8 21.3 15.1 22.4 15.1 C23.5 15.1 24.5 15.8 24.8 16.9 C25.2 18 24.7 19.3 23.7 20 C23.9 20.9 23.6 21.8 23 22.5 C25 23.2 26.7 24.8 27.5 27.1 C28.8 30.9 29.6 35.6 29.6 40.8 Z', bodyId, c.stroke);
-      const ring = accentEllipse(22.5, 17.3, 3.4, 1, accentId, c.stroke);
-      const mitre = bodyPath('M22.5 8.6 L19.4 14.6 C19.1 15.5 19.9 16.6 20.8 16.6 L24.2 16.6 C25.1 16.6 25.9 15.5 25.6 14.6 Z', bodyId, c.stroke);
-      const ball = accentCircle(22.5, 7.2, 2.1, accentId, c.stroke);
+      const shadow = groundShadow(22.5, 42.5, 10, 1.7, shadowId);
+      const base = bodyPath(
+        'M 9,36 C 12.39,35.03 19.11,36.43 22.5,34 C 25.89,36.43 32.61,35.03 36,36 C 36,36 37.65,36.54 39,38 C 38.32,38.97 37.35,38.99 36,38.5 C 32.61,37.53 25.89,38.96 22.5,37.5 C 19.11,38.96 12.39,37.53 9,38.5 C 7.65,38.99 6.68,38.97 6,38 C 7.35,36.54 9,36 9,36 Z',
+        bodyId,
+        c.stroke,
+      );
+      const body = bodyPath(
+        'M 15,32 C 17.5,34.5 27.5,34.5 30,32 C 30.5,30.5 30,30 30,30 C 30,27.5 27.5,26 27.5,26 C 33,24.5 33.5,14.5 22.5,10.5 C 11.5,14.5 12,24.5 17.5,26 C 17.5,26 15,27.5 15,30 C 15,30 14.5,30.5 15,32 Z',
+        bodyId,
+        c.stroke,
+      );
+      const ball = accentCircle(22.5, 8, 2.5, accentId, c.stroke);
       return (
         <>
-          {base}{GA(base)}
+          {shadow}
+          {base}{GB(base)}
           {body}{GB(body)}
-          {ring}{GA(ring)}
-          {mitre}{GB(mitre)}
           {ball}{GA(ball)}
-          <Line x1={22.5} y1={9.4} x2={22.5} y2={15} stroke={c.detail} strokeWidth={1.3} strokeLinecap="round" opacity={0.7} />
-          {detailLine('M19.8 27 c2 1.6 3.4 1.6 5.4 0 M20.6 24 c1.4 1.2 2.4 1.2 3.8 0', c.detail, 0.85, 0.6)}
+          {marbleVein('M22.5,28 C20.5,25 24.5,23 22.5,18', c.detail)}
+          <Path d="M 22.5,15.5 L 22.5,20.5 M 20,18 L 25,18" stroke={c.detail} strokeWidth={1.1} strokeLinecap="round" fill="none" opacity={0.7} />
+          {detailLine('M 17.5,26 L 27.5,26 M 15,30 L 30,30', c.detail, 0.8, 0.5)}
         </>
       );
     }
 
     case 'q': {
-      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
-      const body = bodyPath('M14.7 40.8 C14.7 35.3 15.6 30.5 17 26.9 C18 24.3 20 22.6 22.2 22 C19.9 22.2 17.9 20.5 17.4 17.9 C16.7 14.5 19.1 11.5 22.5 11.5 C25.9 11.5 28.3 14.5 27.6 17.9 C27.1 20.5 25.1 22.2 22.8 22 C25 22.6 27 24.3 28 26.9 C29.4 30.5 30.3 35.3 30.3 40.8 Z', bodyId, c.stroke);
-      const band = accentRect(19.8, 11.4, 5.4, 2, 0.8, accentId, c.stroke);
-      const crown = accentPath('M19.8 11.4 L20.9 6.8 L22.5 11.4 L24.1 6.8 L25.2 11.4 Z', accentId, c.stroke);
+      const shadow = groundShadow(22.5, 42.5, 11, 1.7, shadowId);
+      const crown = bodyPath(
+        'M 9,26 C 17.5,24.5 30,24.5 36,26 L 38.5,13.5 L 31,25 L 30.7,10.9 L 25.5,24.5 L 22.5,10 L 19.5,24.5 L 14.3,10.9 L 14,25 L 6.5,13.5 L 9,26 z',
+        bodyId,
+        c.stroke,
+      );
+      const body = bodyPath(
+        'M 9,26 C 9,28 10.5,28 11.5,30 C 12.5,31.5 12.5,31 12,33.5 C 10.5,34.5 11,36 11,36 C 9.5,37.5 11,38.5 11,38.5 C 17.5,39.5 27.5,39.5 34,38.5 C 34,38.5 35.5,37.5 34,36 C 34,36 34.5,34.5 33,33.5 C 32.5,31 32.5,31.5 33.5,30 C 34.5,28 36,28 36,26 C 27.5,24.5 17.5,24.5 9,26 z',
+        bodyId,
+        c.stroke,
+      );
+      const jewels = [
+        [6.5, 13.5], [14.3, 10.9], [22.5, 10], [30.7, 10.9], [38.5, 13.5],
+      ].map(([x, y], i) => (
+        <Circle key={`qj-${i}`} cx={x} cy={y} r={1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.7} />
+      ));
       return (
         <>
-          {base}{GA(base)}
+          {shadow}
+          {crown}{GB(crown)}
           {body}{GB(body)}
-          {band}{GA(band)}
-          {crown}{GA(crown)}
-          <Circle cx={20.9} cy={5.9} r={1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
-          <Circle cx={22.5} cy={5.3} r={1.1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
-          <Circle cx={24.1} cy={5.9} r={1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
-          {detailLine('M18.2 24.5 c2.8 1.5 5.8 1.5 8.6 0 M17.5 27.5 c3.2 1.5 6.8 1.5 10.2 0 M17 30.5 c3.6 1.4 7.6 1.4 11.2 0', c.detail, 0.8, 0.55)}
+          {jewels}
+          {marbleVein('M22.5,33 C20,30 25,28 22,25 C20.5,23 24,21.5 22,19', c.detail)}
+          {detailLine('M 11.5,30 C 15,29 30,29 33.5,30 M 12,33.5 C 18,32.5 27,32.5 33,33.5', c.detail, 0.85, 0.55)}
         </>
       );
     }
 
     case 'k': {
-      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
-      const body = bodyPath('M14.9 40.8 C14.9 35.2 15.8 30.2 17.2 26.4 C18.2 23.8 20.2 22 22.5 21.4 C24.8 22 26.8 23.8 27.8 26.4 C29.2 30.2 30.1 35.2 30.1 40.8 Z', bodyId, c.stroke);
-      const collar = accentEllipse(22.5, 20.6, 4.8, 1.1, accentId, c.stroke);
-      const crownBlock = accentRect(20.3, 13, 4.4, 7.6, 1.2, accentId, c.stroke);
-      const crownBand = accentRect(19.6, 15.4, 5.8, 2.4, 0.9, accentId, c.stroke);
-      const cap = accentPath('M20.5 13 c0 -1.5 0.9 -2.4 2 -2.4 c1.1 0 2 0.9 2 2.4 Z', accentId, c.stroke);
+      const shadow = groundShadow(22.5, 42.5, 11, 1.7, shadowId);
+      const crownBulb = bodyPath(
+        'M22.5 25 s4.5-7.5 3-10.5 c0 0-1-2.5-3-2.5 s-3 2.5-3 2.5 c-1.5 3 3 10.5 3 10.5 Z',
+        bodyId,
+        c.stroke,
+      );
+      const arms = bodyPath(
+        'M12.5 37 c5.5 3.5 14.5 3.5 20 0 v-7 s9-4.5 6-10.5 c-4-6.5-13.5-3.5-16 4 V27 v-3.5 c-2.5-7.5-12-10.5-16-4 c-3 6 6 10.5 6 10.5 v7 Z',
+        bodyId,
+        c.stroke,
+      );
       return (
         <>
-          {base}{GA(base)}
-          {body}{GB(body)}
-          {collar}{GA(collar)}
-          {crownBlock}{GA(crownBlock)}
-          {crownBand}{GA(crownBand)}
-          {cap}{GA(cap)}
-          <Path d="M22.5 10.4 V6.8 M20.7 8.6 H24.3" stroke={c.detail} strokeWidth={1.7} strokeLinecap="round" fill="none" />
+          {shadow}
+          {arms}{GB(arms)}
+          {crownBulb}{GB(crownBulb)}
+          {marbleVein('M22.5,33 C20,30 25,28 22.5,25 C20.5,23 24,21.5 22.5,19', c.detail)}
+          {detailLine('M22.5 11.63 V6 M20 8 h5', c.detail, 1.5, 0.85)}
+          {detailLine('M12.5 30 c5.5-3 14.5-3 20 0 m-20 3.5 c5.5-3 14.5-3 20 0 m-20 3.5 c5.5-3 14.5-3 20 0', c.detail, 0.8, 0.5)}
         </>
       );
     }
@@ -303,6 +348,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, 
   const glossBodyId = `rc-glossb-${color}${type}-${theme}`;
   const accentId = `rc-accent-${color}${type}-${theme}`;
   const glossAccentId = `rc-glossa-${color}${type}-${theme}`;
+  const shadowId = `rc-shadow-${color}${type}-${theme}`;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -310,25 +356,29 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, 
         <Defs>
           <LinearGradient id={bodyId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={c.bodyTop} />
-            <Stop offset="0.55" stopColor={c.bodyMid} />
+            <Stop offset="0.5" stopColor={c.bodyMid} />
             <Stop offset="1" stopColor={c.bodyBottom} />
           </LinearGradient>
           <LinearGradient id={accentId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={c.accentTop} />
             <Stop offset="1" stopColor={c.accentBottom} />
           </LinearGradient>
-          <RadialGradient id={glossBodyId} cx="0.34" cy="0.16" r="0.85">
+          <RadialGradient id={glossBodyId} cx="0.34" cy="0.14" r="0.85">
             <Stop offset="0" stopColor={c.gloss} stopOpacity={1} />
-            <Stop offset="0.4" stopColor={c.gloss} stopOpacity={0.35} />
+            <Stop offset="0.38" stopColor={c.gloss} stopOpacity={0.32} />
             <Stop offset="1" stopColor={c.gloss} stopOpacity={0} />
           </RadialGradient>
-          <RadialGradient id={glossAccentId} cx="0.34" cy="0.16" r="0.85">
+          <RadialGradient id={glossAccentId} cx="0.34" cy="0.14" r="0.85">
             <Stop offset="0" stopColor={c.gloss} stopOpacity={1} />
             <Stop offset="0.45" stopColor={c.gloss} stopOpacity={0.3} />
             <Stop offset="1" stopColor={c.gloss} stopOpacity={0} />
           </RadialGradient>
+          <RadialGradient id={shadowId} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor="#000000" stopOpacity={0.45} />
+            <Stop offset="1" stopColor="#000000" stopOpacity={0} />
+          </RadialGradient>
         </Defs>
-        {renderPiece(type, c, bodyId, glossBodyId, accentId, glossAccentId)}
+        {renderPiece(type, c, bodyId, glossBodyId, accentId, glossAccentId, shadowId)}
       </Svg>
     </View>
   );
