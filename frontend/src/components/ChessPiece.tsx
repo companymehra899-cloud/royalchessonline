@@ -34,9 +34,12 @@ const PIECE_GRADIENTS: Record<string, { w: [string, number][]; b: [string, numbe
     w: [['#fcf8ee', 0], ['#f3ead0', 0.5], ['#e4d2a4', 1]],
     b: [['#3c3c3c', 0], ['#1c1c1c', 0.5], ['#0a0a0a', 1]],
   },
+  // Matte 3D Staunton reference: cool ivory highlights fading to a desaturated
+  // taupe shadow; soft-grey charcoal highlights fading to near-black. (NOT warm
+  // gold — matches the premium off-white / matte-black reference set.)
   luxury: {
-    w: [['#f8ecc8', 0], ['#e8cf94', 0.5], ['#d2af6c', 1]],
-    b: [['#2c2013', 0], ['#1a130a', 0.5], ['#0c0805', 1]],
+    w: [['#f5f0e6', 0], ['#e8dec8', 0.5], ['#dccfb8', 1]],
+    b: [['#5e5e5e', 0], ['#3a3a3a', 0.5], ['#1a1a1a', 1]],
   },
   modern: {
     w: [['#ffffff', 0], ['#f2f2f2', 0.5], ['#e1e1e1', 1]],
@@ -69,6 +72,10 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, 
     svg = svg.replace('viewBox="0 0 45 45">', `viewBox="0 0 45 45">${defs}`);
     if (color === 'w') {
       svg = svg.split('fill="#fff"').join(`fill="url(#${gradId})"`);
+      // Soften the heavy black Staunton outline into a subtle taupe hairline so
+      // the ivory silhouette reads as a smooth lit 3D form, not flat clip-art.
+      svg = svg.split('stroke="#000"').join('stroke="#c2b598"');
+      svg = svg.split('stroke-width="1.5"').join('stroke-width="1"');
     } else {
       svg = svg.split('fill="#000"').join(`fill="url(#${gradId})"`);
     }
