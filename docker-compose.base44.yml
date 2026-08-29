@@ -1,0 +1,72 @@
+# Base44 dev environment for Royal Chess Online.
+# Frontend = Expo React Native (web mode via Metro), Backend = FastAPI + MongoDB.
+# App services run from bind-mounted source with live-reload dev commands.
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: chess
+      MONGO_INITDB_ROOT_PASSWORD: chesspass
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    image: python:3.12-slim
+    working_dir: /app/backend
+    volumes:
+      - ./backend:/app/backend
+    environment:
+      MONGO_URL: mongodb://chess:chesspass@mongodb:27017/?authSource=admin
+      DB_NAME: chess_arena
+      JWT_SECRET: base44_chess_arena_jwt_secret_2026
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8000:8001"
+    command: >
+      bash -c "pip install --no-cache-dir -r requirements.base44.txt &&
+      uvicorn server:app --host 0.0.0.0 --port 8001 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/')"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  frontend:
+    image: node:22
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+      - frontend_node_modules:/app/frontend/node_modules
+    environment:
+      # Public URL of the backend as seen from the browser preview. The suffix is
+      # provided by the platform and changes when the environment is recreated,
+      # so it must stay a variable reference — never a hardcoded host.
+      EXPO_PUBLIC_BACKEND_URL: https://8000-${BASE44_PUBLIC_HOST_SUFFIX}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:8081"
+    command: >
+      bash -c "yarn install --network-timeout 180000 &&
+      sed -i 's/const isAllowedHost = allowedHosts\.includes(host) || isLocalhost;/const isAllowedHost = true;/' /app/frontend/node_modules/@expo/cli/build/src/start/server/middleware/CorsMiddleware.js &&
+      npx expo start --web --host lan --port 8081"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -sf http://localhost:8081/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 24
+      start_period: 180s
+
+volumes:
+  mongo_data:
+  frontend_node_modules:
