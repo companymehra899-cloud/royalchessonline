@@ -1,6 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, ReactElement } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { SvgXml } from 'react-native-svg';
+import Svg, {
+  Path,
+  Circle,
+  Ellipse,
+  Rect,
+  Line,
+  Defs,
+  LinearGradient,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 
 interface ChessPieceProps {
   type: 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
@@ -9,46 +19,317 @@ interface ChessPieceProps {
   theme?: 'classic' | 'luxury' | 'modern';
 }
 
-// Clean classic Staunton vector set (open-source "cburnett" artwork).
-// viewBox 0 0 45 45. White pieces use fill="#fff"; black pieces use fill="#000".
-const PIECE_SVGS: Record<string, string> = {
-  wp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path fill="#fff" stroke="#000" stroke-linecap="round" stroke-width="1.5" d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"/></svg>',
-  wr: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3-3v-4h21v4zm-1-22V9h4v2h5V9h5v2h5V9h4v5"/><path d="m34 14-3 3H14l-3-3"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M31 17v12.5H14V17"/><path d="m31 29.5 1.5 2.5h-20l1.5-2.5"/><path fill="none" stroke-linejoin="miter" d="M11 14h23"/></g></svg>',
-  wb: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.35.49-2.32.47-3-.5 1.35-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path stroke-linejoin="miter" d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>',
-  wn: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path fill="#fff" d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21"/><path fill="#fff" d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4.003 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-.994-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-1.992 2.5-3c1 0 1 3 1 3"/><path fill="#000" d="M9.5 25.5a.5.5 0 1 1-1 0 .5.5 0 1 1 1 0m5.433-9.75a.5 1.5 30 1 1-.866-.5.5 1.5 30 1 1 .866.5"/></g></svg>',
-  wq: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0m16.5-4.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0M41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0M16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0M33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0"/><path stroke-linecap="butt" d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14z"/><path stroke-linecap="butt" d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/><path fill="none" d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0"/></g></svg>',
-  wk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linejoin="miter" d="M22.5 11.63V6M20 8h5"/><path fill="#fff" stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path fill="#fff" d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10z"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>',
-  bp: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path fill="#000" stroke="#000" stroke-linecap="round" stroke-width="1.5" d="M22.5 9a4 4 0 0 0-3.22 6.38 6.48 6.48 0 0 0-.87 10.65c-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47a6.46 6.46 0 0 0-.87-10.65A4.01 4.01 0 0 0 22.5 9z"/></svg>',
-  br: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linecap="butt" d="M9 39h27v-3H9zm3.5-7 1.5-2.5h17l1.5 2.5zm-.5 4v-4h21v4z"/><path stroke-linecap="butt" stroke-linejoin="miter" d="M14 29.5v-13h17v13z"/><path stroke-linecap="butt" d="M14 16.5 11 14h23l-3 2.5zM11 14V9h4v2h5V9h5v2h5V9h4v5z"/><path fill="none" stroke="#ececec" stroke-linejoin="miter" stroke-width="1" d="M12 35.5h21m-20-4h19m-18-2h17m-17-13h17M11 14h23"/></g></svg>',
-  bb: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g fill="#000" stroke-linecap="butt"><path d="M9 36c3.4-1 10.1.4 13.5-2 3.4 2.4 10.1 1 13.5 2 0 0 1.6.5 3 2-.7 1-1.6 1-3 .5-3.4-1-10.1.5-13.5-1-3.4 1.5-10.1 0-13.5 1-1.4.5-2.3.5-3-.5 1.4-2 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path stroke="#ececec" stroke-linejoin="miter" d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5"/></g></svg>',
-  bn: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path fill="#000" d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21"/><path fill="#000" d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.04-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-1-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-2 2.5-3c1 0 1 3 1 3"/><path fill="#ececec" stroke="#ececec" d="M9.5 25.5a.5.5 0 1 1-1 0 .5.5 0 1 1 1 0m5.43-9.75a.5 1.5 30 1 1-.86-.5.5 1.5 30 1 1 .86.5"/><path fill="#ececec" stroke="none" d="m24.55 10.4-.45 1.45.5.15c3.15 1 5.65 2.49 7.9 6.75S35.75 29.06 35.25 39l-.05.5h2.25l.05-.5c.5-10.06-.88-16.85-3.25-21.34s-5.79-6.64-9.19-7.16z"/></g></svg>',
-  bq: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><g stroke="none"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path stroke-linecap="butt" d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5z"/><path stroke-linecap="butt" d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/><path fill="none" stroke-linecap="butt" d="M11 38.5a35 35 1 0 0 23 0"/><path fill="none" stroke="#ececec" d="M11 29a35 35 1 0 1 23 0m-21.5 2.5h20m-21 3a35 35 1 0 0 22 0m-23 3a35 35 1 0 0 24 0"/></g></svg>',
-  bk: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path stroke-linejoin="miter" d="M22.5 11.6V6"/><path fill="#000" stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path fill="#000" d="M11.5 37a22.3 22.3 0 0 0 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10z"/><path stroke-linejoin="miter" d="M20 8h5"/><path stroke="#ececec" d="M32 29.5s8.5-4 6-9.7C34.1 14 25 18 22.5 24.6v2.1-2.1C20 18 9.9 14 7 19.9c-2.5 5.6 4.8 9 4.8 9"/><path stroke="#ececec" d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>',
+// Modern "3D vector" piece set. Each piece is drawn from layered gradients so it
+// reads as a glossy, sculpted piece instead of a flat silhouette.
+interface PieceColors {
+  bodyTop: string;
+  bodyMid: string;
+  bodyBottom: string;
+  gloss: string;
+  glossBody: number;
+  glossAccent: number;
+  stroke: string;
+  detail: string;
+  shade: string;
+  eye: string;
+  accentTop: string;
+  accentBottom: string;
+}
+
+const THEMES: Record<'classic' | 'luxury' | 'modern', Record<'w' | 'b', PieceColors>> = {
+  classic: {
+    w: {
+      bodyTop: '#fefdfa',
+      bodyMid: '#f2ede1',
+      bodyBottom: '#c8bfa9',
+      gloss: '#ffffff',
+      glossBody: 0.5,
+      glossAccent: 0.72,
+      stroke: '#5f584b',
+      detail: '#7a7264',
+      shade: 'rgba(70, 58, 38, 0.20)',
+      eye: '#3b3326',
+      accentTop: '#ede6d6',
+      accentBottom: '#b3a88f',
+    },
+    b: {
+      bodyTop: '#3c4148',
+      bodyMid: '#24272d',
+      bodyBottom: '#0a0b0d',
+      gloss: '#c3cbd6',
+      glossBody: 0.3,
+      glossAccent: 0.4,
+      stroke: '#000000',
+      detail: '#8b939f',
+      shade: 'rgba(220, 228, 238, 0.10)',
+      eye: '#c7cdd7',
+      accentTop: '#2c3036',
+      accentBottom: '#0d0e11',
+    },
+  },
+  luxury: {
+    w: {
+      bodyTop: '#fdf6e2',
+      bodyMid: '#efdca9',
+      bodyBottom: '#c49a45',
+      gloss: '#fffbe8',
+      glossBody: 0.55,
+      glossAccent: 0.78,
+      stroke: '#7a5c14',
+      detail: '#8a6a1d',
+      shade: 'rgba(110, 75, 12, 0.24)',
+      eye: '#4a3a12',
+      accentTop: '#f6e2ae',
+      accentBottom: '#b6892f',
+    },
+    b: {
+      bodyTop: '#4b3920',
+      bodyMid: '#251a0d',
+      bodyBottom: '#0a0603',
+      gloss: '#d4af37',
+      glossBody: 0.28,
+      glossAccent: 0.4,
+      stroke: '#000000',
+      detail: '#a0813a',
+      shade: 'rgba(214, 175, 55, 0.16)',
+      eye: '#cfa244',
+      accentTop: '#3a2c16',
+      accentBottom: '#100b04',
+    },
+  },
+  modern: {
+    w: {
+      bodyTop: '#ffffff',
+      bodyMid: '#eef1f6',
+      bodyBottom: '#b4becb',
+      gloss: '#ffffff',
+      glossBody: 0.55,
+      glossAccent: 0.78,
+      stroke: '#55606f',
+      detail: '#6a7687',
+      shade: 'rgba(50, 60, 82, 0.16)',
+      eye: '#3f4a5c',
+      accentTop: '#e8edf4',
+      accentBottom: '#a2aeba',
+    },
+    b: {
+      bodyTop: '#2c3547',
+      bodyMid: '#161c28',
+      bodyBottom: '#04060a',
+      gloss: '#7d8ca3',
+      glossBody: 0.3,
+      glossAccent: 0.42,
+      stroke: '#000000',
+      detail: '#64748b',
+      shade: 'rgba(200, 215, 235, 0.10)',
+      eye: '#aab7c9',
+      accentTop: '#242c3d',
+      accentBottom: '#090c12',
+    },
+  },
 };
 
-// Subtle tone variation per piece theme (keeps clean Staunton look on every board).
-const TONES: Record<string, { light: string; dark: string }> = {
-  classic: { light: '#f7f4ec', dark: '#2b2b2b' },
-  luxury: { light: '#f3e3b8', dark: '#20180d' },
-  modern: { light: '#ffffff', dark: '#12161f' },
+// Clone a shape node with a gradient fill (used to overlay the glossy highlight).
+const withGloss = (node: ReactElement, id: string, opacity: number): ReactElement =>
+  React.cloneElement(node, {
+    fill: `url(#${id})`,
+    stroke: 'none',
+    strokeWidth: 0,
+    opacity,
+  } as object);
+
+// Reusable shape helpers (keep stroke + gloss handling consistent across pieces).
+const bodyPath = (d: string, bodyId: string, stroke: string) => (
+  <Path d={d} fill={`url(#${bodyId})`} stroke={stroke} strokeWidth={1.15} strokeLinejoin="round" strokeLinecap="round" />
+);
+
+const accentEllipse = (cx: number, cy: number, rx: number, ry: number, accentId: string, stroke: string) => (
+  <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={`url(#${accentId})`} stroke={stroke} strokeWidth={0.9} />
+);
+
+const accentCircle = (cx: number, cy: number, r: number, accentId: string, stroke: string) => (
+  <Circle cx={cx} cy={cy} r={r} fill={`url(#${accentId})`} stroke={stroke} strokeWidth={0.9} />
+);
+
+const accentRect = (x: number, y: number, w: number, h: number, rx: number, accentId: string, stroke: string) => (
+  <Rect x={x} y={y} width={w} height={h} rx={rx} fill={`url(#${accentId})`} stroke={stroke} strokeWidth={0.9} />
+);
+
+const accentPath = (d: string, accentId: string, stroke: string) => (
+  <Path d={d} fill={`url(#${accentId})`} stroke={stroke} strokeWidth={0.9} strokeLinejoin="round" />
+);
+
+const detailLine = (d: string, color: string, width = 0.85, opacity = 0.6) => (
+  <Path d={d} stroke={color} strokeWidth={width} strokeLinecap="round" fill="none" opacity={opacity} />
+);
+
+const renderPiece = (
+  type: string,
+  c: PieceColors,
+  bodyId: string,
+  glossBody: string,
+  accentId: string,
+  glossAccent: string,
+): ReactElement => {
+  const GB = (node: ReactElement) => withGloss(node, glossBody, c.glossBody);
+  const GA = (node: ReactElement) => withGloss(node, glossAccent, c.glossAccent);
+
+  switch (type) {
+    case 'p': {
+      const base = accentEllipse(22.5, 40.8, 8.4, 2.2, accentId, c.stroke);
+      const stem = bodyPath('M15.7 40.8 C15.7 34.4 16.9 27 18.4 22.9 C19.3 20.6 21.2 20 22.5 20.9 C23.8 20 25.7 20.6 26.6 22.9 C28.1 27 29.3 34.4 29.3 40.8 Z', bodyId, c.stroke);
+      const collar = accentEllipse(22.5, 21.6, 6.4, 1.5, accentId, c.stroke);
+      const neck = bodyPath('M17.7 21.6 C17.7 17.7 19.2 15.2 22.5 15.2 C25.8 15.2 27.3 17.7 27.3 21.6 Z', bodyId, c.stroke);
+      const head = accentCircle(22.5, 12.4, 5.1, accentId, c.stroke);
+      return (
+        <>
+          {base}{GA(base)}
+          {stem}{GB(stem)}
+          {collar}{GA(collar)}
+          {neck}{GB(neck)}
+          {head}{GA(head)}
+        </>
+      );
+    }
+
+    case 'r': {
+      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
+      const body = bodyPath('M14.9 40.8 C14.9 34.3 16 26.3 17.2 21.2 L27.8 21.2 C29 26.3 30.1 34.3 30.1 40.8 Z', bodyId, c.stroke);
+      const band = accentRect(14.4, 21.2, 16.2, 4.6, 1, accentId, c.stroke);
+      const lip = accentEllipse(22.5, 16.4, 7.6, 0.9, accentId, c.stroke);
+      const merlons = bodyPath('M14.4 21.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2.4 v4.8 h1.2 v-4.8 h2 v4.8', bodyId, c.stroke);
+      return (
+        <>
+          {base}{GA(base)}
+          {body}{GB(body)}
+          {band}{GA(band)}
+          {lip}{GA(lip)}
+          {merlons}{GB(merlons)}
+          {detailLine('M15.4 30.5 h24.2 M16.2 25.5 h22.6', c.detail, 0.8, 0.5)}
+        </>
+      );
+    }
+
+    case 'n': {
+      const base = accentEllipse(26.5, 39.2, 12.5, 2.1, accentId, c.stroke);
+      const head = bodyPath('M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21', bodyId, c.stroke);
+      const mane = (
+        <Path
+          d="M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.042-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4.003 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-.994-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-1.992 2.5-3c1 0 1 3 1 3"
+          fill={c.shade}
+        />
+      );
+      return (
+        <>
+          {base}{GA(base)}
+          {head}{GB(head)}
+          {mane}
+          <Circle cx={9.5} cy={25.5} r={0.8} fill={c.eye} />
+          <Circle cx={14.4} cy={15.9} r={0.8} fill={c.eye} />
+        </>
+      );
+    }
+
+    case 'b': {
+      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
+      const body = bodyPath('M15.2 40.8 C15.2 35.6 16 30.9 17.3 27.1 C18.1 24.8 19.8 23.2 21.8 22.5 C21.2 21.8 20.9 20.9 21.1 20 C20.1 19.3 19.6 18 20 16.9 C20.3 15.8 21.3 15.1 22.4 15.1 C23.5 15.1 24.5 15.8 24.8 16.9 C25.2 18 24.7 19.3 23.7 20 C23.9 20.9 23.6 21.8 23 22.5 C25 23.2 26.7 24.8 27.5 27.1 C28.8 30.9 29.6 35.6 29.6 40.8 Z', bodyId, c.stroke);
+      const ring = accentEllipse(22.5, 17.3, 3.4, 1, accentId, c.stroke);
+      const mitre = bodyPath('M22.5 8.6 L19.4 14.6 C19.1 15.5 19.9 16.6 20.8 16.6 L24.2 16.6 C25.1 16.6 25.9 15.5 25.6 14.6 Z', bodyId, c.stroke);
+      const ball = accentCircle(22.5, 7.2, 2.1, accentId, c.stroke);
+      return (
+        <>
+          {base}{GA(base)}
+          {body}{GB(body)}
+          {ring}{GA(ring)}
+          {mitre}{GB(mitre)}
+          {ball}{GA(ball)}
+          <Line x1={22.5} y1={9.4} x2={22.5} y2={15} stroke={c.detail} strokeWidth={1.3} strokeLinecap="round" opacity={0.7} />
+          {detailLine('M19.8 27 c2 1.6 3.4 1.6 5.4 0 M20.6 24 c1.4 1.2 2.4 1.2 3.8 0', c.detail, 0.85, 0.6)}
+        </>
+      );
+    }
+
+    case 'q': {
+      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
+      const body = bodyPath('M14.7 40.8 C14.7 35.3 15.6 30.5 17 26.9 C18 24.3 20 22.6 22.2 22 C19.9 22.2 17.9 20.5 17.4 17.9 C16.7 14.5 19.1 11.5 22.5 11.5 C25.9 11.5 28.3 14.5 27.6 17.9 C27.1 20.5 25.1 22.2 22.8 22 C25 22.6 27 24.3 28 26.9 C29.4 30.5 30.3 35.3 30.3 40.8 Z', bodyId, c.stroke);
+      const band = accentRect(19.8, 11.4, 5.4, 2, 0.8, accentId, c.stroke);
+      const crown = accentPath('M19.8 11.4 L20.9 6.8 L22.5 11.4 L24.1 6.8 L25.2 11.4 Z', accentId, c.stroke);
+      return (
+        <>
+          {base}{GA(base)}
+          {body}{GB(body)}
+          {band}{GA(band)}
+          {crown}{GA(crown)}
+          <Circle cx={20.9} cy={5.9} r={1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
+          <Circle cx={22.5} cy={5.3} r={1.1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
+          <Circle cx={24.1} cy={5.9} r={1} fill={`url(#${accentId})`} stroke={c.stroke} strokeWidth={0.8} />
+          {detailLine('M18.2 24.5 c2.8 1.5 5.8 1.5 8.6 0 M17.5 27.5 c3.2 1.5 6.8 1.5 10.2 0 M17 30.5 c3.6 1.4 7.6 1.4 11.2 0', c.detail, 0.8, 0.55)}
+        </>
+      );
+    }
+
+    case 'k': {
+      const base = accentEllipse(22.5, 40.8, 9.2, 2.3, accentId, c.stroke);
+      const body = bodyPath('M14.9 40.8 C14.9 35.2 15.8 30.2 17.2 26.4 C18.2 23.8 20.2 22 22.5 21.4 C24.8 22 26.8 23.8 27.8 26.4 C29.2 30.2 30.1 35.2 30.1 40.8 Z', bodyId, c.stroke);
+      const collar = accentEllipse(22.5, 20.6, 4.8, 1.1, accentId, c.stroke);
+      const crownBlock = accentRect(20.3, 13, 4.4, 7.6, 1.2, accentId, c.stroke);
+      const crownBand = accentRect(19.6, 15.4, 5.8, 2.4, 0.9, accentId, c.stroke);
+      const cap = accentPath('M20.5 13 c0 -1.5 0.9 -2.4 2 -2.4 c1.1 0 2 0.9 2 2.4 Z', accentId, c.stroke);
+      return (
+        <>
+          {base}{GA(base)}
+          {body}{GB(body)}
+          {collar}{GA(collar)}
+          {crownBlock}{GA(crownBlock)}
+          {crownBand}{GA(crownBand)}
+          {cap}{GA(cap)}
+          <Path d="M22.5 10.4 V6.8 M20.7 8.6 H24.3" stroke={c.detail} strokeWidth={1.7} strokeLinecap="round" fill="none" />
+        </>
+      );
+    }
+
+    default:
+      return <></>;
+  }
 };
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36, theme = 'classic' }) => {
-  const xml = useMemo(() => {
-    const key = `${color}${type}`;
-    let svg = PIECE_SVGS[key] || PIECE_SVGS[`${color}p`];
-    const tone = TONES[theme] || TONES.classic;
-    if (color === 'w') {
-      svg = svg.split('fill="#fff"').join(`fill="${tone.light}"`);
-    } else {
-      svg = svg.split('fill="#000"').join(`fill="${tone.dark}"`);
-    }
-    return svg;
-  }, [type, color, theme]);
+  const c = useMemo(() => {
+    const palettes = THEMES[theme] || THEMES.classic;
+    return palettes[color] || palettes.w;
+  }, [theme, color]);
+
+  const bodyId = `rc-body-${color}${type}-${theme}`;
+  const glossBodyId = `rc-glossb-${color}${type}-${theme}`;
+  const accentId = `rc-accent-${color}${type}-${theme}`;
+  const glossAccentId = `rc-glossa-${color}${type}-${theme}`;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      <SvgXml xml={xml} width={size} height={size} />
+      <Svg width={size} height={size} viewBox="0 0 45 45">
+        <Defs>
+          <LinearGradient id={bodyId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={c.bodyTop} />
+            <Stop offset="0.55" stopColor={c.bodyMid} />
+            <Stop offset="1" stopColor={c.bodyBottom} />
+          </LinearGradient>
+          <LinearGradient id={accentId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={c.accentTop} />
+            <Stop offset="1" stopColor={c.accentBottom} />
+          </LinearGradient>
+          <RadialGradient id={glossBodyId} cx="0.34" cy="0.16" r="0.85">
+            <Stop offset="0" stopColor={c.gloss} stopOpacity={1} />
+            <Stop offset="0.4" stopColor={c.gloss} stopOpacity={0.35} />
+            <Stop offset="1" stopColor={c.gloss} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id={glossAccentId} cx="0.34" cy="0.16" r="0.85">
+            <Stop offset="0" stopColor={c.gloss} stopOpacity={1} />
+            <Stop offset="0.45" stopColor={c.gloss} stopOpacity={0.3} />
+            <Stop offset="1" stopColor={c.gloss} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        {renderPiece(type, c, bodyId, glossBodyId, accentId, glossAccentId)}
+      </Svg>
     </View>
   );
 };
@@ -57,10 +338,9 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    // Soft drop shadow to give the flat vectors subtle depth like a real set.
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
   },
 });
