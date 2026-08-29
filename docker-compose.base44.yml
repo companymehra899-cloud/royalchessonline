@@ -1,0 +1,57 @@
+# Base44 dev environment for Royal Chess Online.
+# Single-origin wiring: the Expo web dev server (port 3000) proxies /api/* to
+# the FastAPI backend over the compose network. MongoDB runs as a local service.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: python:3.12-slim
+    working_dir: /app/backend
+    volumes:
+      - ./backend:/app/backend
+    environment:
+      - MONGO_URL=mongodb://mongo:27017
+      - DB_NAME=chess_arena
+      - JWT_SECRET=chess_arena_secret_luxury_key_2025
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.base44.txt &&
+             exec uvicorn server:app --host 0.0.0.0 --port 8000 --reload"
+    restart: unless-stopped
+
+  frontend:
+    image: node:20
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    environment:
+      # Metro reverse-proxy target (see frontend/metro.config.js). /api/* from
+      # the browser is proxied to the backend over the compose network.
+      - EXPO_PUBLIC_BACKEND_TARGET=http://backend:8000
+      - EXPO_NO_TELEMETRY=1
+      - REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0
+      # Preview origin (changes when the environment is recreated) — read by
+      # app.config.js to allowlist it in Expo's dev-server CORS middleware.
+      - BASE44_PUBLIC_HOST_SUFFIX=${BASE44_PUBLIC_HOST_SUFFIX}
+    depends_on:
+      - backend
+    ports:
+      - "3000:8081"
+    command: >
+      sh -c "yarn install --frozen-lockfile || yarn install &&
+             exec yarn expo start --web --port 8081"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

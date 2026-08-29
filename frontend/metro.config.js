@@ -45,6 +45,8 @@ const proxyHandler = (req, res) => {
 };
 
 config.server = config.server || {};
+// Bind to all interfaces so the dev server is reachable through Docker port mapping.
+config.server.host = '0.0.0.0';
 config.server.enhanceMiddleware = (middleware) => (req, res, next) => {
   if (req.url.startsWith('/api/')) return proxyHandler(req, res);
   return middleware(req, res, next);
