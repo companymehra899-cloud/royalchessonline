@@ -1,0 +1,22 @@
+# Minimal runtime deps for the chess arena backend (Base44 dev env).
+# Trimmed from the full requirements.txt, which pins private/unused packages
+# (emergentintegrations, litellm, boto3, openai, google-genai, pandas, ...)
+# that are not imported by server.py / chess_engine.py and cannot be installed here.
+fastapi==0.110.1
+starlette==0.37.2
+uvicorn==0.25.0
+pydantic==2.13.4
+pydantic_core==2.46.4
+motor==3.3.1
+pymongo==4.6.3
+PyJWT==2.13.0
+httpx==0.28.1
+chess==1.11.2
+python-dotenv==1.2.3
+python-multipart==0.0.32
+anyio==4.14.2
+sniffio==1.3.1
+idna==3.19
+h11==0.16.0
+annotated-types==0.8.0
+typing_extensions==4.16.0
