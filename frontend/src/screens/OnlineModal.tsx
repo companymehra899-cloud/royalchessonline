@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { useAuth } from '../context/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
+type ModeTab = 'create' | 'join' | 'quick';
+
 interface OnlineModalProps {
   visible: boolean;
   onClose: () => void;
@@ -23,10 +25,102 @@ interface OnlineModalProps {
 
 export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onStartGame }) => {
   const { token } = useAuth();
-  const [modeTab, setModeTab] = useState<'create' | 'join'>('create');
+  const [modeTab, setModeTab] = useState<ModeTab>('create');
   const [joinCode, setJoinCode] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Quick match state
+  const [quickTime, setQuickTime] = useState<5 | 10 | 15>(10);
+  const [searching, setSearching] = useState(false);
+  const [searchMsg, setSearchMsg] = useState('Searching for opponent...');
+  const pollRef = useRef<any>(null);
+  const searchActiveRef = useRef(false);
+
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
+  const clearPoll = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const handleQuickMatchEnd = (data: any) => {
+    clearPoll();
+    searchActiveRef.current = false;
+    setSearching(false);
+    onClose();
+    onStartGame(data.room_code);
+  };
+
+  const stopSearch = async (silent = false) => {
+    clearPoll();
+    if (searchActiveRef.current) {
+      searchActiveRef.current = false;
+      try {
+        await fetch(`${BACKEND_URL}/api/online/matchmaking/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+    setSearching(false);
+    if (!silent) setSearchMsg('Searching for opponent...');
+  };
+
+  const pollStatus = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/online/matchmaking/status`, {
+        headers: authHeaders,
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === 'matched') {
+        handleQuickMatchEnd(data);
+      } else if (data.status === 'expired') {
+        stopSearch(true);
+        Alert.alert('No Opponent Found', 'We could not find an opponent right now. Please try again.');
+      } else if (data.status === 'waiting') {
+        setSearchMsg('Searching for opponent...');
+      }
+    } catch (e) {
+      // keep polling
+    }
+  };
+
+  const handleQuickMatch = async () => {
+    setSearching(true);
+    searchActiveRef.current = true;
+    setSearchMsg('Searching for opponent...');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/online/matchmaking/queue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ time_minutes: quickTime, color_preference: 'random' }),
+      });
+      const data = await res.json();
+      if (data.status === 'matched') {
+        handleQuickMatchEnd(data);
+        return;
+      }
+      if (data.status === 'waiting') {
+        pollRef.current = setInterval(pollStatus, 3000);
+      } else {
+        searchActiveRef.current = false;
+        setSearching(false);
+        Alert.alert('Error', 'Unable to start matchmaking. Please try again.');
+      }
+    } catch (e) {
+      searchActiveRef.current = false;
+      setSearching(false);
+      Alert.alert('Error', 'Unable to start matchmaking. Please try again.');
+    }
+  };
 
   const handleCreateRoom = async () => {
     setLoading(true);
@@ -79,6 +173,42 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
     }
   };
 
+  // Cleanup when the modal is dismissed
+  useEffect(() => {
+    if (!visible) {
+      clearPoll();
+      if (searchActiveRef.current) {
+        fetch(`${BACKEND_URL}/api/online/matchmaking/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+        }).catch(() => {});
+        searchActiveRef.current = false;
+      }
+      setSearching(false);
+      setCreatedRoomCode(null);
+    }
+  }, [visible]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearPoll();
+      if (searchActiveRef.current) {
+        fetch(`${BACKEND_URL}/api/online/matchmaking/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+        }).catch(() => {});
+        searchActiveRef.current = false;
+      }
+    };
+  }, []);
+
+  const switchTab = (tab: ModeTab) => {
+    stopSearch(true);
+    setModeTab(tab);
+    if (tab === 'create') setCreatedRoomCode(null);
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -94,18 +224,21 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
           <View style={styles.tabRow}>
             <TouchableOpacity
               style={[styles.tabBtn, modeTab === 'create' && styles.tabBtnActive]}
-              onPress={() => {
-                setModeTab('create');
-                setCreatedRoomCode(null);
-              }}
+              onPress={() => switchTab('create')}
             >
               <Text style={[styles.tabText, modeTab === 'create' && styles.tabTextActive]}>CREATE ROOM</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabBtn, modeTab === 'join' && styles.tabBtnActive]}
-              onPress={() => setModeTab('join')}
+              onPress={() => switchTab('join')}
             >
               <Text style={[styles.tabText, modeTab === 'join' && styles.tabTextActive]}>JOIN ROOM</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabBtn, modeTab === 'quick' && styles.tabBtnActive]}
+              onPress={() => switchTab('quick')}
+            >
+              <Text style={[styles.tabText, modeTab === 'quick' && styles.tabTextActive]}>QUICK MATCH</Text>
             </TouchableOpacity>
           </View>
 
@@ -146,7 +279,7 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
                 </View>
               )}
             </View>
-          ) : (
+          ) : modeTab === 'join' ? (
             <View style={styles.tabContent}>
               <Text style={styles.actionDesc}>Enter the 6-character room code shared by your friend:</Text>
               <TextInput
@@ -169,6 +302,54 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ visible, onClose, onSt
                   <Text style={styles.actionBtnText}>JOIN MATCH</Text>
                 )}
               </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.tabContent}>
+              {searching ? (
+                <View style={styles.createActionBox}>
+                  <ActivityIndicator size="large" color={colors.gold} />
+                  <Text style={styles.searchTitle}>SEARCHING FOR OPPONENT...</Text>
+                  <Text style={styles.searchSub}>{searchMsg}</Text>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => stopSearch(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.createActionBox}>
+                  <MaterialCommunityIcons name="sword-cross" size={48} color={colors.gold} style={{ marginBottom: 12 }} />
+                  <Text style={styles.actionDesc}>
+                    Instantly match with a random online opponent. Winner climbs the leaderboard.
+                  </Text>
+                  <Text style={styles.timeLabel}>TIME CONTROL</Text>
+                  <View style={styles.timeRow}>
+                    {([5, 10, 15] as const).map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[styles.timeChip, quickTime === t && styles.timeChipActive]}
+                        onPress={() => setQuickTime(t)}
+                      >
+                        <Text style={[styles.timeChipText, quickTime === t && styles.timeChipTextActive]}>
+                          {t} MIN
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={handleQuickMatch}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#0b0e14" />
+                    ) : (
+                      <Text style={styles.actionBtnText}>FIND ONLINE OPPONENT</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -227,7 +408,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabTextActive: {
@@ -310,5 +491,68 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     paddingVertical: 12,
     marginBottom: 16,
+  },
+  timeLabel: {
+    color: colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    width: '100%',
+    marginBottom: 16,
+  },
+  timeChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 4,
+  },
+  timeChipActive: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  timeChipText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  timeChipTextActive: {
+    color: '#0b0e14',
+  },
+  searchTitle: {
+    color: colors.gold,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginTop: 18,
+  },
+  searchSub: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginVertical: 10,
+  },
+  cancelBtn: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  cancelBtnText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
 });
