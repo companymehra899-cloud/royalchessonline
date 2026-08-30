@@ -7,7 +7,9 @@ import logging
 import random
 import string
 import hashlib
+import hmac
 import jwt
+import bcrypt
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -30,15 +32,25 @@ db_name = os.environ.get('DB_NAME', 'test_database')
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'chess_arena_secret_luxury_key_2025')
+# JWT secret MUST come from the environment — never from a hardcoded source fallback.
+# A leaked/guessable secret lets anyone forge tokens and impersonate any account.
+JWT_SECRET = os.environ.get('JWT_SECRET')
 JWT_ALGORITHM = "HS256"
+if not JWT_SECRET or len(JWT_SECRET) < 32:
+    raise RuntimeError(
+        "JWT_SECRET must be set in backend/.env (or the environment) and be at least "
+        "32 characters long. Refusing to start with a missing or weak secret."
+    )
 
 # --- League / Rewards configuration (prizes claimed EXTERNALLY, no in-app payment) ---
-ADMIN_EMAILS = {"hackerabcd001@gmail.com"}
+# Admin emails come from the environment (comma-separated), never from source code.
+# A user whose email is listed here is granted the 'admin' role on registration/login.
+_admin_env = os.environ.get('ADMIN_EMAILS', '')
+ADMIN_EMAILS = {e.strip().lower() for e in _admin_env.split(',') if e.strip()}
 LEAGUE_DURATION_DAYS = 3
 LEAGUE_MIN_PLAYERS = 200
 LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
-LEAGUE_CLAIM_URL = "yourdomain.com"  # external verification/claim destination
+LEAGUE_CLAIM_URL = os.environ.get('LEAGUE_CLAIM_URL', '') or ''
 PRIZE_TABLE = [
     {"rank": 1, "prize": 500},
     {"rank": 2, "prize": 300},
@@ -65,7 +77,25 @@ app = FastAPI(title="Chess Arena API")
 api_router = APIRouter(prefix="/api")
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password with bcrypt (salted, slow, resistant to offline cracking)."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify a password against a stored hash.
+
+    Supports bcrypt hashes. Legacy SHA-256 (unsalted) hashes are still accepted only
+    to allow existing accounts to log in; they are re-hashed to bcrypt on next login.
+    """
+    if not stored_hash:
+        return False
+    if stored_hash.startswith("$2"):
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
+        except ValueError:
+            return False
+    # Legacy unsalted SHA-256 fallback for pre-migration accounts
+    legacy = hashlib.sha256(password.encode()).hexdigest()
+    return hmac.compare_digest(legacy, stored_hash)
 
 def create_token(user_id: str, email: str) -> str:
     payload = {
@@ -114,9 +144,15 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
     return user
 
 async def require_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    if (current_user.get("email") or "").lower() not in ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+    email = (current_user.get("email") or "").lower()
+    # DB role field is authoritative; env-configured admin emails act as bootstrap/fallback.
+    if current_user.get("role") == "admin" or email in ADMIN_EMAILS:
+        return current_user
+    # Re-fetch from DB in case the role was granted after the token was issued.
+    db_user = await db.users.find_one({"id": current_user.get("id")}, {"_id": 0})
+    if db_user and db_user.get("role") == "admin":
+        return current_user
+    raise HTTPException(status_code=403, detail="Admin access required")
 
 # --- Pydantic Models ---
 class UserRegister(BaseModel):
@@ -217,6 +253,7 @@ async def init_db():
                 "id": user_id,
                 "email": "chessplayer@gmail.com",
                 "username": "ChessPlayer",
+                "role": "user",
                 "password_hash": hash_password("password123"),
                 "rating": 1200,
                 "best_rating": 1200,
@@ -242,6 +279,7 @@ async def init_db():
             for p in sample_players:
                 exists = await db.users.find_one({"id": p["id"]})
                 if not exists:
+                    p["role"] = "user"
                     p["password_hash"] = hash_password("pass123")
                     p["created_at"] = datetime.now(timezone.utc).isoformat()
                     await db.users.insert_one(p)
@@ -263,6 +301,7 @@ async def register(req: UserRegister):
         "id": user_id,
         "email": req.email.lower(),
         "username": username,
+        "role": "admin" if req.email.lower() in ADMIN_EMAILS else "user",
         "password_hash": hash_password(req.password),
         "rating": 1200,
         "best_rating": 1200,
@@ -294,10 +333,22 @@ async def login(req: UserLogin):
     user = await db.users.find_one({"email": req.email.lower()})
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email or password")
-    
-    if user.get("password_hash") != hash_password(req.password):
+
+    stored_hash = user.get("password_hash") or ""
+    if not verify_password(req.password, stored_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
-    
+
+    # Upgrade legacy SHA-256 hashes to bcrypt on successful login.
+    if not stored_hash.startswith("$2"):
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"password_hash": hash_password(req.password)}},
+        )
+
+    # Re-grant admin role from env list (covers users registered before role existed).
+    if not user.get("role") and (user.get("email") or "").lower() in ADMIN_EMAILS:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"role": "admin"}})
+
     token = create_token(user["id"], user["email"])
     user_response = {k: v for k, v in user.items() if k not in ["_id", "password_hash"]}
     return {"token": token, "user": user_response}
@@ -313,6 +364,7 @@ async def guest_login(req: GuestLogin):
         "id": guest_id,
         "email": f"{guest_id}@guest.chessarena.io",
         "username": username,
+        "role": "user",
         "password_hash": "",
         "is_guest": True,
         "rating": 1200,
@@ -385,6 +437,7 @@ async def exchange_google_session(req: SessionExchangeRequest):
             "id": user_id,
             "email": email,
             "username": google_name,
+            "role": "admin" if email in ADMIN_EMAILS else "user",
             "auth_provider": "google",
             "google_id": provider_id,
             "google_name": google_name,
@@ -667,11 +720,33 @@ async def get_room_state(room_code: str):
     return room
 
 @api_router.post("/online/rooms/{room_code}/move")
-async def make_room_move(room_code: str, req: MakeRoomMoveRequest):
+async def make_room_move(
+    room_code: str,
+    req: MakeRoomMoveRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
     room = await db.rooms.find_one({"room_code": room_code.upper()})
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-        
+
+    if room.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="This game room has already concluded.")
+
+    uid = current_user.get("id")
+    white = room.get("white_player") or {}
+    black = room.get("black_player") or {}
+    if uid not in (white.get("id"), black.get("id")):
+        raise HTTPException(status_code=403, detail="You are not a player in this game")
+
+    if room.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Waiting for an opponent before moves can be made")
+
+    # Turn check: only the player whose colour it is may move.
+    side = "white" if room.get("turn", "w") == "w" else "black"
+    player = white if side == "white" else black
+    if player.get("id") != uid:
+        raise HTTPException(status_code=403, detail="Not your turn")
+
     current_fen = room.get("fen", chess.STARTING_FEN)
     board = chess.Board(current_fen)
     
@@ -1111,7 +1186,7 @@ async def league_my_winnings(current_user: Dict[str, Any] = Depends(get_current_
                     "completed_at": lg.get("completed_at"),
                     "message": (
                         f"Congratulations! You won \u20b9{prize}. "
-                        f"Please complete your verification on our official message box ({LEAGUE_CLAIM_URL}) to claim your prize."
+                        f"Please complete your verification on {LEAGUE_CLAIM_URL or 'the in-app message box'} to claim your prize."
                     ),
                 })
     return {"winnings": winnings}

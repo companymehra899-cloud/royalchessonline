@@ -248,35 +248,77 @@ class TestOnlineRooms:
         assert rg.status_code == 200
         assert rg.json()["room_code"] == code
 
-        # Legal move
+        # Legal move by white (demo)
         rm = s.post(f"{API}/online/rooms/{code}/move",
-                    json={"from_sq": "e2", "to_sq": "e4"})
+                    json={"from_sq": "e2", "to_sq": "e4"},
+                    headers={"Authorization": f"Bearer {pytest.demo_token}"})
         assert rm.status_code == 200, rm.text
         state = rm.json()
         assert state["turn"] == "b"
         assert state["last_move"]["san"] in ("e4",)
         assert len(state["move_history"]) == 1
 
-        # Illegal move
+        # Illegal move must come from the player whose turn it is (black = guest)
         ril = s.post(f"{API}/online/rooms/{code}/move",
-                     json={"from_sq": "e2", "to_sq": "e5"})
+                     json={"from_sq": "e2", "to_sq": "e5"},
+                     headers={"Authorization": f"Bearer {pytest.guest_token}"})
         assert ril.status_code == 400
+
+        # Unauthenticated move is rejected (401)
+        r_unauth = s.post(f"{API}/online/rooms/{code}/move",
+                          json={"from_sq": "e7", "to_sq": "e5"})
+        assert r_unauth.status_code == 401
+
+        # Out-of-turn player is rejected (403): white tries to move while black's turn
+        r_oot = s.post(f"{API}/online/rooms/{code}/move",
+                       json={"from_sq": "e2", "to_sq": "e4"},
+                       headers={"Authorization": f"Bearer {pytest.demo_token}"})
+        assert r_oot.status_code == 403
+
+    def test_non_player_cannot_move(self, s):
+        import uuid
+        email = f"outsider_{uuid.uuid4().hex[:8]}@test.io"
+        r = s.post(f"{API}/auth/register", json={"email": email, "password": "pwd123", "username": "Outsider"})
+        outsider_token = r.json()["token"]
+
+        # Demo creates + guest joins a fresh room
+        rc = s.post(f"{API}/online/rooms/create",
+                    json={"color_preference": "white", "time_minutes": 5},
+                    headers={"Authorization": f"Bearer {pytest.demo_token}"})
+        code = rc.json()["room_code"]
+        s.post(f"{API}/online/rooms/join", json={"room_code": code},
+               headers={"Authorization": f"Bearer {pytest.guest_token}"})
+
+        # Outsider (not a player) is rejected with 403
+        rm = s.post(f"{API}/online/rooms/{code}/move",
+                    json={"from_sq": "e2", "to_sq": "e4"},
+                    headers={"Authorization": f"Bearer {outsider_token}"})
+        assert rm.status_code == 403
 
     def test_join_nonexistent_room(self, s):
         r = s.post(f"{API}/online/rooms/join", json={"room_code": "ZZZZZZ"})
         assert r.status_code == 404
 
     def test_fools_mate_checkmate(self, s):
-        # Create a fresh room
+        # Create a fresh room as demo (white), join as guest (black)
         r = s.post(f"{API}/online/rooms/create",
-                   json={"color_preference": "white", "time_minutes": 5})
+                   json={"color_preference": "white", "time_minutes": 5},
+                   headers={"Authorization": f"Bearer {pytest.demo_token}"})
         code = r.json()["room_code"]
-        s.post(f"{API}/online/rooms/join", json={"room_code": code})
-        # Fool's mate: 1.f3 e5 2.g4 Qh4#
-        moves = [("f2", "f3"), ("e7", "e5"), ("g2", "g4"), ("d8", "h4")]
+        s.post(f"{API}/online/rooms/join", json={"room_code": code},
+               headers={"Authorization": f"Bearer {pytest.guest_token}"})
+        # Fool's mate: 1.f3 e5 2.g4 Qh4# (white = demo, black = guest)
+        moves = [
+            ("f2", "f3", pytest.demo_token),
+            ("e7", "e5", pytest.guest_token),
+            ("g2", "g4", pytest.demo_token),
+            ("d8", "h4", pytest.guest_token),
+        ]
         last = None
-        for f, t in moves:
-            resp = s.post(f"{API}/online/rooms/{code}/move", json={"from_sq": f, "to_sq": t})
+        for f, t, token in moves:
+            resp = s.post(f"{API}/online/rooms/{code}/move",
+                          json={"from_sq": f, "to_sq": t},
+                          headers={"Authorization": f"Bearer {token}"})
             assert resp.status_code == 200, resp.text
             last = resp.json()
         assert last["status"] == "completed"
