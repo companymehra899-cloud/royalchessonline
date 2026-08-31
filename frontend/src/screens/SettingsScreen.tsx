@@ -324,7 +324,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <MaterialCommunityIcons name="chess-knight" size={40} color={colors.gold} style={{ alignSelf: 'center', marginBottom: 10 }} />
-            <Text style={[styles.modalHeading, { textAlign: 'center' }]}>Chess Arena v1.0</Text>
+            <Text style={[styles.modalHeading, { textAlign: 'center' }]}>Royal Chess v1.0</Text>
             <Text style={{ color: colors.textSecondary, textAlign: 'center', fontSize: 13, lineHeight: 20, marginBottom: 20 }}>
               Luxury Gold Edition Chess Engine powered by standard FIDE rules, Minimax Tactical AI, Puzzles, and Online Multiplayer.
             </Text>

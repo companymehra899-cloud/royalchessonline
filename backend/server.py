@@ -75,7 +75,7 @@ def rate_limit(key: str, max_calls: int, window_seconds: int):
     _rate_buckets[key] = bucket
 
 # Create the main app without a prefix
-app = FastAPI(title="Chess Arena API")
+app = FastAPI(title="Royal Chess API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

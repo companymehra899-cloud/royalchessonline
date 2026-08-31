@@ -41,7 +41,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <TouchableOpacity style={styles.headerIconBtn} onPress={onOpenSettings}>
           <MaterialCommunityIcons name="menu" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>CHESS ARENA</Text>
+        <Text style={styles.headerTitle}>ROYAL CHESS</Text>
         <TouchableOpacity style={styles.headerIconBtn} onPress={() => {}}>
           <MaterialCommunityIcons name="bell-outline" size={24} color={colors.textPrimary} />
           <View style={styles.notificationDot} />

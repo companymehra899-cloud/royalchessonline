@@ -54,6 +54,7 @@ export const GameSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setSettings((prev) => ({ ...prev, ...parsed }));
         soundManager.setSoundEnabled(parsed.soundEnabled ?? true);
         soundManager.setVibrationEnabled(parsed.vibrationEnabled ?? true);
+        soundManager.setMusicEnabled(parsed.musicEnabled ?? false);
       }
     } catch (e) {
       console.log('Error loading game settings:', e);
@@ -72,7 +73,10 @@ export const GameSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     soundManager.setSoundEnabled(soundEnabled);
     save({ ...settings, soundEnabled });
   };
-  const setMusicEnabled = (musicEnabled: boolean) => save({ ...settings, musicEnabled });
+  const setMusicEnabled = (musicEnabled: boolean) => {
+    soundManager.setMusicEnabled(musicEnabled);
+    save({ ...settings, musicEnabled });
+  };
   const setVibrationEnabled = (vibrationEnabled: boolean) => {
     soundManager.setVibrationEnabled(vibrationEnabled);
     save({ ...settings, vibrationEnabled });

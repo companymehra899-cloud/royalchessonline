@@ -17,7 +17,7 @@ export const GoldenKnightLogo: React.FC<Props> = ({ size = 'medium', showSubtitl
       <View style={[styles.iconCircle, { width: iconSize + 24, height: iconSize + 24 }]}>
         <MaterialCommunityIcons name="chess-knight" size={iconSize} color={colors.gold} />
       </View>
-      <Text style={[styles.title, { fontSize: titleSize }]}>CHESS ARENA</Text>
+      <Text style={[styles.title, { fontSize: titleSize }]}>ROYAL CHESS</Text>
       {showSubtitle && <Text style={styles.subtitle}>MASTER YOUR MOVES</Text>}
     </View>
   );
