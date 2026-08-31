@@ -57,6 +57,17 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36 }
   const left = (size - renderedWidth) / 2;
   const top = size - renderedHeight;
 
+  // Layered elliptical ground shadow under the base so the piece reads as a 3D
+  // object sitting on the board instead of a flat sticker.
+  const shadowWidth = renderedWidth * 0.7;
+  const shadowHeight = shadowWidth * 0.16;
+  const shadowLeft = (size - shadowWidth) / 2;
+  const shadowBottom = size * 0.012;
+  const innerShadowWidth = shadowWidth * 0.62;
+  const innerShadowHeight = shadowHeight * 0.62;
+  const innerShadowLeft = shadowLeft + (shadowWidth - innerShadowWidth) / 2;
+  const innerShadowBottom = shadowBottom + shadowHeight * 0.2;
+
   return (
     <View
       accessible
@@ -64,12 +75,32 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36 }
       accessibilityLabel={`${colorName} ${PIECE_NAMES[type]}`}
       style={[styles.container, { width: size, height: size }]}
     >
+      {/* Soft outer ground shadow */}
+      <View
+        style={[
+          styles.groundShadowOuter,
+          { width: shadowWidth, height: shadowHeight, left: shadowLeft, bottom: shadowBottom },
+        ]}
+      />
+      {/* Denser inner ground shadow near the base */}
+      <View
+        style={[
+          styles.groundShadowInner,
+          {
+            width: innerShadowWidth,
+            height: innerShadowHeight,
+            left: innerShadowLeft,
+            bottom: innerShadowBottom,
+          },
+        ]}
+      />
+      {/* Offset cast silhouette shadow for elevation */}
       <Image
         source={PIECE_IMAGES[color][type]}
         resizeMode={resizeMode}
         style={[
           styles.castShadow,
-          { width: renderedWidth, height: renderedHeight, left, top: top + 1.5 },
+          { width: renderedWidth, height: renderedHeight, left: left + 0.75, top: top + 1.5 },
         ]}
       />
       <Image
@@ -85,15 +116,13 @@ const styles = StyleSheet.create<{
   container: ViewStyle;
   pieceImage: ImageStyle;
   castShadow: ImageStyle;
+  groundShadowOuter: ViewStyle;
+  groundShadowInner: ViewStyle;
 }>({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.46,
-    shadowRadius: 3,
   },
   pieceImage: {
     position: 'absolute',
@@ -101,6 +130,16 @@ const styles = StyleSheet.create<{
   castShadow: {
     position: 'absolute',
     tintColor: '#000000',
-    opacity: 0.24,
+    opacity: 0.08,
+  },
+  groundShadowOuter: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  groundShadowInner: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
   },
 });
