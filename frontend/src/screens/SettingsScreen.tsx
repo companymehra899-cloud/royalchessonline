@@ -43,8 +43,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [aboutModal, setAboutModal] = useState(false);
 
   const boardOptions: Array<{ id: BoardThemeKey; label: string }> = [
-    { id: 'wood', label: 'Wood' },
-    { id: 'green', label: 'Classic Green' },
+    { id: 'wood', label: 'Brown & White' },
+    { id: 'green', label: 'Green & White' },
     { id: 'obsidian', label: 'Obsidian Gold' },
     { id: 'slate', label: 'Midnight Slate' },
   ];
@@ -66,7 +66,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={onBack}>
+        <TouchableOpacity testID="settings-back-button" style={styles.headerBtn} onPress={onBack}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>SETTINGS</Text>
@@ -79,12 +79,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         <View style={styles.sectionBox}>
           {/* Board Style */}
           <TouchableOpacity
+            testID="settings-board-style-button"
             style={styles.settingRow}
             onPress={() => setBoardModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <MaterialCommunityIcons name="chess-board" size={22} color={colors.gold} />
+              <MaterialCommunityIcons name="chess-rook" size={22} color={colors.gold} />
               <View style={styles.rowTextCol}>
                 <Text style={styles.settingLabel}>Board Style</Text>
                 <Text style={styles.settingVal}>
@@ -244,6 +245,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             {boardOptions.map((b) => (
               <TouchableOpacity
                 key={b.id}
+                testID={`settings-board-option-${b.id}`}
                 style={[styles.modalOption, boardTheme === b.id && styles.modalOptionSelected]}
                 onPress={() => {
                   setBoardTheme(b.id);

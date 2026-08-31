@@ -36,13 +36,11 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
   onOpenSettings,
 }) => {
   const { user, token, updateUserStats } = useAuth();
-  const { boardTheme, pieceTheme, moveConfirm, hintsEnabled } = useGameSettings();
+  const { boardTheme, pieceTheme, moveConfirm } = useGameSettings();
 
   const [game, setGame] = useState(() => new Chess());
   const [fen, setFen] = useState(() => game.fen());
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
-  const [hintMove, setHintMove] = useState<{ from: string; to: string } | null>(null);
-  const [hintText, setHintText] = useState<string | null>(null);
   const [moveHistory, setMoveHistory] = useState<Array<{ from: string; to: string; san: string }>>([]);
 
   // Timers (in seconds)
@@ -148,8 +146,6 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       if (!moveResult) return;
 
       setLastMove({ from: mv.from, to: mv.to });
-      setHintMove(null);
-      setHintText(null);
       setFen(game.fen());
       setMoveHistory((prev) => [...prev, { from: mv.from, to: mv.to, san: moveResult.san }]);
 
@@ -230,28 +226,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     }
     setFen(game.fen());
     setLastMove(null);
-    setHintMove(null);
-    setHintText(null);
     soundManager.playMove();
-  };
-
-  const handleHint = async () => {
-    if (!hintsEnabled || isAiThinking || gameOver) return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/chess/hint`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: game.fen() }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHintMove({ from: data.from, to: data.to });
-        setHintText(data.description);
-        soundManager.playMove();
-      }
-    } catch (e) {
-      Alert.alert('Hint', 'Advance your pieces towards the center and control open files.');
-    }
   };
 
   const handleResign = () => {
@@ -270,8 +245,6 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     setGame(newG);
     setFen(newG.fen());
     setLastMove(null);
-    setHintMove(null);
-    setHintText(null);
     setMoveHistory([]);
     setPlayerTime(10 * 60);
     setOpponentTime(10 * 60);
@@ -337,20 +310,11 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
         boardTheme={boardTheme}
         pieceTheme={pieceTheme}
         lastMove={lastMove}
-        hintMove={hintMove}
         interactive={!gameOver && !isAiThinking}
         onMove={handleUserMove}
         confirmMoveEnabled={moveConfirm}
         onPendingMove={setPendingConfirmMove}
       />
-
-      {/* Hint Banner if active */}
-      {!!hintText && (
-        <View style={styles.hintBanner}>
-          <MaterialCommunityIcons name="lightbulb-on" size={18} color={colors.gold} />
-          <Text style={styles.hintBannerText}>{hintText}</Text>
-        </View>
-      )}
 
       {/* Move Confirm Banner */}
       {!!pendingConfirmMove && (
@@ -401,11 +365,6 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
         <TouchableOpacity style={styles.actionBtn} testID="undo-button" onPress={handleUndo} activeOpacity={0.7}>
           <MaterialCommunityIcons name="undo" size={20} color={colors.textSecondary} />
           <Text style={styles.actionBtnText}>UNDO</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionBtn} testID="hint-button" onPress={handleHint} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="lightbulb-outline" size={20} color={colors.gold} />
-          <Text style={[styles.actionBtnText, { color: colors.gold }]}>HINT</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn} testID="resign-button" onPress={handleResign} activeOpacity={0.7}>
@@ -529,24 +488,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     marginLeft: 6,
-  },
-  hintBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#262010',
-    marginHorizontal: 16,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    marginVertical: 4,
-  },
-  hintBannerText: {
-    color: colors.goldLight,
-    fontSize: 12,
-    marginLeft: 8,
-    flex: 1,
-    fontWeight: '600',
   },
   confirmBanner: {
     backgroundColor: colors.surfaceElevated,

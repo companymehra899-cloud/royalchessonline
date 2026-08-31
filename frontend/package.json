@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "preinstall": "./scripts/cmd-guard.js --preinstall",
+    "dev": "expo start --web --port 3000 --host lan",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",

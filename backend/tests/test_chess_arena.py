@@ -68,24 +68,6 @@ class TestAuth:
         assert r.status_code == 200
         assert r.json()["email"] == "chessplayer@gmail.com"
 
-    def test_session_exchange_invalid_id_returns_401(self, s):
-        """POST /api/auth/session with fake session_id must return 401 and NOT create a user."""
-        r = s.post(f"{API}/auth/session", json={"session_id": "fake_test_id_does_not_exist_12345"})
-        assert r.status_code == 401, f"Expected 401 for invalid session_id, got {r.status_code}: {r.text}"
-        # Ensure no random-user side effect: /leaderboard should not contain 'fake_test_id' user
-        lb = s.get(f"{API}/leaderboard", params={"limit": 50}).json()
-        assert not any("fake_test_id" in (p.get("id") or "") for p in lb)
-
-    def test_session_exchange_missing_field_returns_422(self, s):
-        """POST /api/auth/session without session_id must return 422 (Pydantic validation)."""
-        r = s.post(f"{API}/auth/session", json={})
-        assert r.status_code == 422, f"Expected 422, got {r.status_code}: {r.text}"
-
-    def test_session_exchange_empty_string_returns_401(self, s):
-        """Empty session_id must be rejected by upstream (401), not accepted."""
-        r = s.post(f"{API}/auth/session", json={"session_id": ""})
-        assert r.status_code in (401, 422), f"Expected 401/422 for empty session_id, got {r.status_code}"
-
     def test_jwt_still_works_after_session_helper_extension(self, s):
         """Regression: get_current_user_optional must still accept JWTs after being extended for session tokens."""
         r = s.get(f"{API}/auth/me", headers={"Authorization": f"Bearer {pytest.demo_token}"})

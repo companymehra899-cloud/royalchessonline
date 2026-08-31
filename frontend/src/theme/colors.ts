@@ -31,16 +31,16 @@ export const colors = {
   // Board themes
   boards: {
     wood: {
-      name: 'Wood',
-      light: '#e8d3a7',
-      dark: '#966138',
+      name: 'Brown & White',
+      light: '#f4f1e8',
+      dark: '#9a6743',
       highlight: 'rgba(212, 175, 55, 0.65)',
       selected: 'rgba(245, 158, 11, 0.75)'
     },
     green: {
-      name: 'Classic Green',
-      light: '#eeeed2',
-      dark: '#769656',
+      name: 'Green & White',
+      light: '#f4f1e8',
+      dark: '#55745c',
       highlight: 'rgba(245, 230, 83, 0.65)',
       selected: 'rgba(245, 158, 11, 0.75)'
     },

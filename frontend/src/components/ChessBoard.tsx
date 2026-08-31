@@ -12,7 +12,6 @@ interface ChessBoardProps {
   boardTheme?: BoardThemeKey;
   pieceTheme?: 'classic' | 'luxury' | 'modern';
   lastMove?: { from: string; to: string } | null;
-  hintMove?: { from: string; to: string } | null;
   interactive?: boolean;
   onMove: (move: { from: string; to: string; promotion?: string }) => void;
   confirmMoveEnabled?: boolean;
@@ -28,8 +27,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   flipped = false,
   boardTheme = 'wood',
   pieceTheme = 'classic',
-  lastMove,
-  hintMove,
   interactive = true,
   onMove,
   confirmMoveEnabled = false,
@@ -127,13 +124,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               const squareBg = isLight ? currentBoardTheme.light : currentBoardTheme.dark;
               const piece = game.get(sqName);
 
-              const isSelected = selectedSquare === sqName;
-              const isLastMove = lastMove && (lastMove.from === sqName || lastMove.to === sqName);
-              const isHint = hintMove && (hintMove.from === sqName || hintMove.to === sqName);
               const isCheckKing = checkKingSquare === sqName;
-
-              const legalMoveTarget = legalMoves.find((m) => m.to === sqName);
-              const isCaptureTarget = legalMoveTarget && piece && piece.color !== game.turn();
 
               return (
                 <TouchableOpacity
@@ -148,10 +139,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       height: SQUARE_SIZE,
                       backgroundColor: squareBg,
                     },
-                    isLastMove && { backgroundColor: currentBoardTheme.highlight },
-                    isSelected && { backgroundColor: currentBoardTheme.selected },
                     isCheckKing && styles.checkSquare,
-                    isHint && styles.hintSquare,
                   ]}
                 >
                   {/* Piece Render */}
@@ -163,12 +151,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       theme={pieceTheme}
                     />
                   )}
-
-                  {/* Legal Move Dot */}
-                  {legalMoveTarget && !piece && <View style={styles.legalDot} />}
-
-                  {/* Legal Capture Ring */}
-                  {isCaptureTarget && <View style={styles.captureRing} />}
 
                   {/* Rank & File coordinate notation labels */}
                   {fileIdx === 0 && (
@@ -236,24 +218,6 @@ const styles = StyleSheet.create({
   },
   checkSquare: {
     backgroundColor: 'rgba(239, 68, 68, 0.75)',
-  },
-  hintSquare: {
-    borderWidth: 2,
-    borderColor: colors.gold,
-  },
-  legalDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: 'rgba(212, 175, 55, 0.7)',
-  },
-  captureRing: {
-    position: 'absolute',
-    width: SQUARE_SIZE - 4,
-    height: SQUARE_SIZE - 4,
-    borderRadius: (SQUARE_SIZE - 4) / 2,
-    borderWidth: 3,
-    borderColor: 'rgba(239, 68, 68, 0.8)',
   },
   coordRank: {
     position: 'absolute',
