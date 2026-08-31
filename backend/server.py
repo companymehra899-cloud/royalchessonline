@@ -60,6 +60,11 @@ PRIZE_TABLE = [
     {"rank": 3, "prize": 200},
 ]
 
+# Google OAuth (your own credentials, delivered via the platform secret store).
+# Optional at boot: the /api/auth/google endpoints return 503 until these are set.
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
+
 # Simple in-memory rate limiter (best-effort, single-process)
 _rate_buckets: Dict[str, List[float]] = {}
 
@@ -122,22 +127,7 @@ async def get_current_user_optional(authorization: Optional[str] = Header(None))
                 return user
     except Exception:
         pass
-    # 2) Try Google OAuth session token (user_sessions collection)
-    try:
-        session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
-        if not session:
-            return None
-        expires_at = session.get("expires_at")
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at)
-        if expires_at and expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at and expires_at < datetime.now(timezone.utc):
-            return None
-        user = await db.users.find_one({"id": session["user_id"]}, {"_id": 0, "password_hash": 0})
-        return user
-    except Exception:
-        return None
+    return None
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """Auth-required dependency. Reuses the same token logic as optional variant."""
@@ -170,8 +160,9 @@ class UserLogin(BaseModel):
 class GuestLogin(BaseModel):
     username: Optional[str] = None
 
-class SessionExchangeRequest(BaseModel):
-    session_id: str
+class GoogleAuthRequest(BaseModel):
+    code: str
+    redirect_uri: str
 
 class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
@@ -226,13 +217,6 @@ class SendChatRequest(BaseModel):
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
 async def init_db():
-    try:
-        # Indexes for Google OAuth sessions
-        await db.user_sessions.create_index("session_token", unique=True)
-        await db.user_sessions.create_index("user_id")
-        await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
-    except Exception as e:
-        logging.error(f"Error creating session indexes: {e}")
     try:
         # Indexes for League / Rewards system
         await db.league_participants.create_index([("league_id", 1), ("user_id", 1)], unique=True)
@@ -393,34 +377,83 @@ async def guest_login(req: GuestLogin):
     user_response = {k: v for k, v in user_doc.items() if k not in ["_id", "password_hash"]}
     return {"token": token, "user": user_response}
 
-@api_router.post("/auth/session")
-async def exchange_google_session(req: SessionExchangeRequest):
-    """Exchange Emergent Google OAuth session_id for a 7-day session_token."""
+@api_router.get("/auth/google/url")
+async def google_auth_url(redirect_uri: str):
+    """Return the Google OAuth consent URL for the client to redirect to.
+
+    Building the URL server-side keeps the Google Client ID out of the browser
+    bundle. The client passes its own redirect_uri (origin on web, deep link on
+    mobile), which must match a URI registered in the Google Cloud Console.
+    """
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured on the server.")
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "prompt": "select_account",
+        "access_type": "online",
+    }
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
+    return {"auth_url": auth_url}
+
+
+@api_router.post("/auth/google")
+async def google_login(req: GoogleAuthRequest):
+    """Exchange a Google OAuth authorization code for a verified identity + our own JWT.
+
+    The authorization code is exchanged server-side with Google using the client
+    secret (never exposed to the browser). The returned ID token is signature-
+    verified against Google's JWKS before any account is created or updated.
+    The issued JWT uses the same auth path as email/password & guest logins.
+    """
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured on the server.")
+
+    # 1) Exchange the authorization code for Google tokens (server-side, with the secret).
     try:
         async with httpx.AsyncClient(timeout=15.0) as http_client:
-            resp = await http_client.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                headers={"X-Session-ID": req.session_id},
+            token_resp = await http_client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": req.code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": req.redirect_uri,
+                    "grant_type": "authorization_code",
+                },
             )
     except Exception:
-        raise HTTPException(status_code=401, detail="Could not verify Google session")
+        raise HTTPException(status_code=502, detail="Could not reach Google to complete sign-in.")
 
-    if resp.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid or expired Google session")
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Google sign-in failed. Please try again.")
 
-    data = resp.json()
-    email = (data.get("email") or "").lower()
-    if not email:
-        raise HTTPException(status_code=401, detail="Google account has no email")
+    token_data = token_resp.json()
+    google_id_token_str = token_data.get("id_token")
+    if not google_id_token_str:
+        raise HTTPException(status_code=401, detail="Google did not return an identity token.")
 
-    google_name = data.get("name") or email.split("@")[0].capitalize()
-    google_picture = data.get("picture")
-    provider_id = data.get("id")
-    session_token = data.get("session_token")
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Invalid Google session data")
+    # 2) Verify the ID token signature + audience against Google's JWKS.
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            google_id_token_str,
+            google_auth_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Google identity could not be verified.")
 
-    # Upsert user by email — never create duplicates
+    email = (id_info.get("email") or "").lower()
+    if not email or not id_info.get("email_verified"):
+        raise HTTPException(status_code=401, detail="A verified Google email is required.")
+
+    google_name = id_info.get("name") or email.split("@")[0].capitalize()
+    google_picture = id_info.get("picture")
+    provider_id = id_info.get("sub")
+
+    # 3) Upsert user by email — never create duplicates.
     existing = await db.users.find_one({"email": email}, {"_id": 0, "password_hash": 0})
     if existing:
         user_id = existing["id"]
@@ -466,14 +499,9 @@ async def exchange_google_session(req: SessionExchangeRequest):
         await db.users.insert_one(user_doc)
         user_response = {k: v for k, v in user_doc.items() if k != "_id"}
 
-    await db.user_sessions.insert_one({
-        "session_token": session_token,
-        "user_id": user_id,
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
-    })
-
-    return {"session_token": session_token, "user": user_response}
+    # 4) Issue our own JWT — same auth path as email/password & guest logins.
+    token = create_token(user_id, email)
+    return {"token": token, "user": user_response}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
