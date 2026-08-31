@@ -1,0 +1,55 @@
+# Base44 dev environment for Royal Chess Online.
+# Single-origin wiring: the Expo web dev server (port 3000) proxies /api/* to the
+# FastAPI backend via Metro's enhanceMiddleware (see frontend/metro.config.js).
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    image: python:3.13-slim
+    working_dir: /app/backend
+    volumes:
+      - ./backend:/app/backend
+    env_file:
+      - ./.env.base44-defaults
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      bash -c "
+      apt-get update && apt-get install -y --no-install-recommends gcc g++ && rm -rf /var/lib/apt/lists/* ;
+      pip install --no-cache-dir -r requirements.txt ;
+      exec uvicorn server:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/backend
+      "
+    restart: unless-stopped
+
+  frontend:
+    image: node:22
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    environment:
+      - EXPO_PUBLIC_BACKEND_TARGET=http://backend:8000
+      - EXPO_PUBLIC_BACKEND_URL=
+      - BASE44_PUBLIC_HOST_SUFFIX=${BASE44_PUBLIC_HOST_SUFFIX}
+    depends_on:
+      - backend
+    command: >
+      bash -c "
+      yarn install --frozen-lockfile || yarn install ;
+      exec npx expo start --web --port 3000 --host lan
+      "
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
