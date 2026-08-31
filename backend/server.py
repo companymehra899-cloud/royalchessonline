@@ -231,29 +231,6 @@ async def init_db():
     except Exception as e:
         logging.error(f"Error starting league scheduler: {e}")
     try:
-        # Seed default test account: chessplayer@gmail.com / password123
-        demo_user = await db.users.find_one({"email": "chessplayer@gmail.com"})
-        if not demo_user:
-            user_id = "user_demo_chessplayer"
-            now_str = datetime.now(timezone.utc).strftime("%B %Y")
-            await db.users.insert_one({
-                "id": user_id,
-                "email": "chessplayer@gmail.com",
-                "username": "ChessPlayer",
-                "role": "user",
-                "password_hash": hash_password("password123"),
-                "rating": 1200,
-                "best_rating": 1200,
-                "games_played": 0,
-                "wins": 0,
-                "losses": 0,
-                "draws": 0,
-                "puzzles_solved": 0,
-                "avatar_id": "knight_gold",
-                "joined_date": f"Joined {now_str}",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            })
-        
         # Seed a few leaderboard bot/players for realistic ranking
         leaderboard_count = await db.users.count_documents({})
         if leaderboard_count <= 2:
@@ -482,30 +459,12 @@ async def google_auth(req: GoogleAuthRequest):
     return {"token": token, "user": user_response}
 
 @api_router.get("/auth/me")
-async def get_me(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
-    if not current_user:
-        # Return default guest/demo profile
-        demo = await db.users.find_one({"email": "chessplayer@gmail.com"}, {"_id": 0, "password_hash": 0})
-        if demo:
-            return demo
-        return {
-            "id": "guest_default",
-            "username": "ChessPlayer",
-            "email": "chessplayer@gmail.com",
-            "rating": 1200,
-            "best_rating": 1200,
-            "games_played": 0,
-            "wins": 0,
-            "losses": 0,
-            "draws": 0,
-            "avatar_id": "knight_gold",
-            "joined_date": "Joined May 2024"
-        }
+async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return current_user
 
 @api_router.put("/auth/profile")
-async def update_profile(req: UserProfileUpdate, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
-    user_id = current_user.get("id") if current_user else "user_demo_chessplayer"
+async def update_profile(req: UserProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
     
     update_data = {}
     for k, v in req.dict(exclude_unset=True).items():
@@ -520,8 +479,8 @@ async def update_profile(req: UserProfileUpdate, current_user: Optional[Dict[str
 
 # --- Game Recording & Stats Routes ---
 @api_router.post("/games/record")
-async def record_game(req: RecordGameRequest, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
-    user_id = current_user.get("id") if current_user else "user_demo_chessplayer"
+async def record_game(req: RecordGameRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
     
     # Calculate Elo change
     elo_delta = 0
@@ -580,8 +539,8 @@ async def record_game(req: RecordGameRequest, current_user: Optional[Dict[str, A
     }
 
 @api_router.get("/games/history")
-async def get_game_history(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional), limit: int = 20):
-    user_id = current_user.get("id") if current_user else "user_demo_chessplayer"
+async def get_game_history(current_user: Dict[str, Any] = Depends(get_current_user), limit: int = 20):
+    user_id = current_user["id"]
     cursor = db.game_history.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).limit(limit)
     games = await cursor.to_list(limit)
     return games
@@ -637,8 +596,8 @@ async def get_daily_puzzle():
     return daily
 
 @api_router.post("/puzzles/complete")
-async def complete_puzzle(req: CompletePuzzleRequest, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
-    user_id = current_user.get("id") if current_user else "user_demo_chessplayer"
+async def complete_puzzle(req: CompletePuzzleRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
     if req.solved:
         await db.users.update_one(
             {"id": user_id},

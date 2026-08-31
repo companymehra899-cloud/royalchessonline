@@ -30,7 +30,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { user } = useAuth();
 
-  const username = user?.username || 'ChessPlayer';
+  const username = user?.username || 'Player';
   const rating = user?.rating || 1200;
   const gamesPlayed = user?.games_played || 0;
 

@@ -37,8 +37,8 @@ docker compose -f docker-compose.base44.yml up -d
   (npm) but no `yarn.lock`; yarn resolves on each start. The `preinstall` cmd-guard hook
   validates package.json deps — it passes for the committed deps.
 - Expo's `--host` flag only accepts `lan|tunnel|localhost` (NOT `0.0.0.0`). We use `--host lan`.
-- The backend seeds a demo account on startup: `chessplayer@gmail.com` / `password123`,
-  plus several leaderboard bot players.
+- The backend seeds several leaderboard bot players on startup. There is no demo account —
+  users must register, log in, or use guest login.
 
 ## Verifying it works
 - `curl -sf -H "Host: <external-host>" http://localhost:3000/` → HTML with `<div id="root">`

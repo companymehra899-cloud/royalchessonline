@@ -78,10 +78,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
             </TouchableOpacity>
           </View>
           <View style={styles.userNameRow}>
-            <Text style={styles.userName}>{user?.username || 'ChessPlayer'}</Text>
+            <Text style={styles.userName}>{user?.username || 'Player'}</Text>
             <MaterialCommunityIcons name="crown" size={20} color={colors.gold} style={{ marginLeft: 6 }} />
           </View>
-          <Text style={styles.userEmail}>{user?.email || 'chessplayer@gmail.com'}</Text>
+          <Text style={styles.userEmail}>{user?.email || ''}</Text>
           <Text style={styles.joinedText}>{user?.joined_date || 'Joined May 2024'}</Text>
         </View>
 

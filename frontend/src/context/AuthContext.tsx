@@ -123,52 +123,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedToken = await AsyncStorage.getItem('chess_arena_token');
       const savedUser = await AsyncStorage.getItem('chess_arena_user');
       if (savedToken && savedUser) {
-        setToken(savedToken);
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        soundManager.setSoundEnabled(parsedUser.sound_enabled ?? true);
-        soundManager.setVibrationEnabled(parsedUser.vibration_enabled ?? true);
-      } else {
-        // Automatically load demo account by default for instant play experience
-        await autoDemoLogin();
+        // Validate the token against the backend before restoring the session,
+        // so stale sessions (e.g. deleted accounts) are dropped.
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${savedToken}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setToken(savedToken);
+            setUser(data);
+            await AsyncStorage.setItem('chess_arena_user', JSON.stringify(data));
+            soundManager.setSoundEnabled(data.sound_enabled ?? true);
+            soundManager.setVibrationEnabled(data.vibration_enabled ?? true);
+          } else {
+            await AsyncStorage.removeItem('chess_arena_token');
+            await AsyncStorage.removeItem('chess_arena_user');
+          }
+        } catch (e) {
+          console.log('Error validating saved session:', e);
+          await AsyncStorage.removeItem('chess_arena_token');
+          await AsyncStorage.removeItem('chess_arena_user');
+        }
       }
     } catch (e) {
       console.log('Error loading auth session:', e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const autoDemoLogin = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'chessplayer@gmail.com', password: 'password123' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setToken(data.token);
-        setUser(data.user);
-        await AsyncStorage.setItem('chess_arena_token', data.token);
-        await AsyncStorage.setItem('chess_arena_user', JSON.stringify(data.user));
-      }
-    } catch (err) {
-      // Fallback local demo profile
-      const demo: UserProfile = {
-        id: 'user_demo_chessplayer',
-        email: 'chessplayer@gmail.com',
-        username: 'ChessPlayer',
-        rating: 1200,
-        best_rating: 1200,
-        games_played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        avatar_id: 'knight_gold',
-        joined_date: 'Joined May 2024',
-      };
-      setUser(demo);
     }
   };
 

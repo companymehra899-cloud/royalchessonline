@@ -23,9 +23,9 @@ interface AuthScreenProps {
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const { login, register, guestLogin, googleLogin } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('chessplayer@gmail.com');
-  const [password, setPassword] = useState('password123');
-  const [username, setUsername] = useState('ChessPlayer');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
