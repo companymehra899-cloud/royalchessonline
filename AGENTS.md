@@ -25,9 +25,10 @@ docker compose -f docker-compose.base44.yml up -d
   `LEAGUE_CLAIM_URL`. These are app-internal, NOT user-supplied external secrets.
 - `BASE44_PUBLIC_HOST_SUFFIX`: passed to the frontend container so `app.config.js`
   can add the preview origin to Expo's CORS allow-list (source maps / HMR).
-- No external-service secrets are required to boot. Google OAuth uses Emergent's
-  hosted backend with a session_id (no API key needed); guest and email/password
-  login work without it.
+- Google OAuth uses standard Google OAuth 2.0 (authorization code flow). Requires
+  `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (from Google Cloud Console) delivered
+  via `/run/base44/app.env`. Without them, the "Continue with Google" button returns
+  a config error; guest and email/password login work without them.
 
 ## Dev notes
 - Backend deps install on container start (apt-get gcc/g++, then `pip install`).

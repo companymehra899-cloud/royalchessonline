@@ -20,6 +20,7 @@ services:
       - ./backend:/app/backend
     env_file:
       - ./.env.base44-defaults
+      - /run/base44/app.env
     depends_on:
       mongodb:
         condition: service_healthy
