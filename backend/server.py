@@ -47,6 +47,10 @@ if not JWT_SECRET or len(JWT_SECRET) < 32:
 # A user whose email is listed here is granted the 'admin' role on registration/login.
 _admin_env = os.environ.get('ADMIN_EMAILS', '')
 ADMIN_EMAILS = {e.strip().lower() for e in _admin_env.split(',') if e.strip()}
+
+# Google OAuth 2.0 credentials (from /run/base44/app.env)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 LEAGUE_DURATION_DAYS = 3
 LEAGUE_MIN_PLAYERS = 200
 LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
@@ -109,7 +113,7 @@ async def get_current_user_optional(authorization: Optional[str] = Header(None))
     if not authorization:
         return None
     token = authorization.replace("Bearer ", "").strip()
-    # 1) Try JWT (email/password & guest logins)
+    # JWT auth (email/password, guest, and Google logins all use JWT)
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
@@ -119,22 +123,7 @@ async def get_current_user_optional(authorization: Optional[str] = Header(None))
                 return user
     except Exception:
         pass
-    # 2) Try Google OAuth session token (user_sessions collection)
-    try:
-        session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
-        if not session:
-            return None
-        expires_at = session.get("expires_at")
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at)
-        if expires_at and expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at and expires_at < datetime.now(timezone.utc):
-            return None
-        user = await db.users.find_one({"id": session["user_id"]}, {"_id": 0, "password_hash": 0})
-        return user
-    except Exception:
-        return None
+    return None
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """Auth-required dependency. Reuses the same token logic as optional variant."""
@@ -167,8 +156,9 @@ class UserLogin(BaseModel):
 class GuestLogin(BaseModel):
     username: Optional[str] = None
 
-class SessionExchangeRequest(BaseModel):
-    session_id: str
+class GoogleAuthRequest(BaseModel):
+    code: str
+    redirect_uri: str
 
 class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
@@ -223,13 +213,6 @@ class SendChatRequest(BaseModel):
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
 async def init_db():
-    try:
-        # Indexes for Google OAuth sessions
-        await db.user_sessions.create_index("session_token", unique=True)
-        await db.user_sessions.create_index("user_id")
-        await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
-    except Exception as e:
-        logging.error(f"Error creating session indexes: {e}")
     try:
         # Indexes for League / Rewards system
         await db.league_participants.create_index([("league_id", 1), ("user_id", 1)], unique=True)
@@ -390,22 +373,53 @@ async def guest_login(req: GuestLogin):
     user_response = {k: v for k, v in user_doc.items() if k not in ["_id", "password_hash"]}
     return {"token": token, "user": user_response}
 
-@api_router.post("/auth/session")
-async def exchange_google_session(req: SessionExchangeRequest):
-    """Exchange Emergent Google OAuth session_id for a 7-day session_token."""
+@api_router.get("/auth/google-config")
+async def google_config():
+    """Return the Google OAuth client ID for the frontend."""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+    return {"client_id": GOOGLE_CLIENT_ID}
+
+
+@api_router.post("/auth/google")
+async def google_auth(req: GoogleAuthRequest):
+    """Exchange a Google OAuth authorization code for a JWT."""
     try:
         async with httpx.AsyncClient(timeout=15.0) as http_client:
-            resp = await http_client.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                headers={"X-Session-ID": req.session_id},
+            token_resp = await http_client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": req.code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": req.redirect_uri,
+                    "grant_type": "authorization_code",
+                },
             )
     except Exception:
-        raise HTTPException(status_code=401, detail="Could not verify Google session")
+        raise HTTPException(status_code=401, detail="Could not complete Google authentication")
 
-    if resp.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid or expired Google session")
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired Google authorization code")
 
-    data = resp.json()
+    tokens = token_resp.json()
+    access_token = tokens.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Google did not return an access token")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            user_resp = await http_client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Could not fetch Google user info")
+
+    if user_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Failed to get Google user info")
+
+    data = user_resp.json()
     email = (data.get("email") or "").lower()
     if not email:
         raise HTTPException(status_code=401, detail="Google account has no email")
@@ -413,9 +427,6 @@ async def exchange_google_session(req: SessionExchangeRequest):
     google_name = data.get("name") or email.split("@")[0].capitalize()
     google_picture = data.get("picture")
     provider_id = data.get("id")
-    session_token = data.get("session_token")
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Invalid Google session data")
 
     # Upsert user by email — never create duplicates
     existing = await db.users.find_one({"email": email}, {"_id": 0, "password_hash": 0})
@@ -463,14 +474,8 @@ async def exchange_google_session(req: SessionExchangeRequest):
         await db.users.insert_one(user_doc)
         user_response = {k: v for k, v in user_doc.items() if k != "_id"}
 
-    await db.user_sessions.insert_one({
-        "session_token": session_token,
-        "user_id": user_id,
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
-    })
-
-    return {"session_token": session_token, "user": user_response}
+    token = create_token(user_id, email)
+    return {"token": token, "user": user_response}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):

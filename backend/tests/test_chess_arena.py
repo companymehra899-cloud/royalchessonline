@@ -4,7 +4,7 @@ import pytest
 import requests
 import chess
 
-BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://chess-recovery.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "http://localhost:8000").rstrip("/")
 API = f"{BASE_URL}/api"
 
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
