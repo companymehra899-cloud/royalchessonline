@@ -196,6 +196,10 @@ class CreateRoomRequest(BaseModel):
 class JoinRoomRequest(BaseModel):
     room_code: str
 
+class MatchmakingRequest(BaseModel):
+    time_minutes: Optional[int] = 10
+    color_preference: Optional[str] = "random" # 'white', 'black', 'random'
+
 class MakeRoomMoveRequest(BaseModel):
     from_sq: str
     to_sq: str
@@ -871,6 +875,146 @@ async def get_chat_messages(room_code: str):
     if not room:
         raise HTTPException(status_code=404, detail="Game room not found")
     return room.get("chat_messages", [])
+
+# --- Online Matchmaking (auto-pairing queue) ---
+# In-memory matchmaking state (single-process server). Players are queued and
+# automatically paired with the next available opponent.
+
+_match_queue: List[Dict[str, Any]] = []
+_match_rooms: Dict[str, Dict[str, Any]] = {}  # user_id -> {"room_code": str, "matched_at": float}
+MATCH_QUEUE_TTL_SECONDS = 90
+MATCH_ROOM_TTL_SECONDS = 300
+
+def _prune_match_queue():
+    now = _time.time()
+    global _match_queue
+    _match_queue = [e for e in _match_queue if now - e["queued_at"] < MATCH_QUEUE_TTL_SECONDS]
+    stale = [uid for uid, m in _match_rooms.items() if now - m["matched_at"] > MATCH_ROOM_TTL_SECONDS]
+    for uid in stale:
+        _match_rooms.pop(uid, None)
+
+def _identity_for(current_user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if current_user:
+        return {
+            "id": current_user.get("id"),
+            "name": current_user.get("username") or "Player",
+            "rating": current_user.get("rating", 1200),
+        }
+    return {"id": "guest_" + uuid.uuid4().hex[:6], "name": "Guest Player", "rating": 1200}
+
+def _pick_white(pref: str) -> bool:
+    if pref == "white":
+        return True
+    if pref == "black":
+        return False
+    return random.choice([True, False])
+
+async def _create_match_room(player_a: Dict[str, Any], player_b: Dict[str, Any], a_is_white: bool, time_minutes: int) -> dict:
+    room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    room_doc = {
+        "room_code": room_code,
+        "status": "active",
+        "source": "matchmaking",
+        "fen": chess.STARTING_FEN,
+        "turn": "w",
+        "white_player": player_a if a_is_white else player_b,
+        "black_player": player_b if a_is_white else player_a,
+        "time_seconds": time_minutes * 60,
+        "white_time": time_minutes * 60,
+        "black_time": time_minutes * 60,
+        "last_move": None,
+        "move_history": [],
+        "winner": None,
+        "end_reason": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.rooms.insert_one(room_doc)
+    return {k: v for k, v in room_doc.items() if k != "_id"}
+
+async def _match_response(uid: str) -> Optional[Dict[str, Any]]:
+    match = _match_rooms.get(uid)
+    room_code = match["room_code"] if match else None
+    if not room_code:
+        return None
+    room = await db.rooms.find_one({"room_code": room_code}, {"_id": 0})
+    if not room:
+        _match_rooms.pop(uid, None)
+        return None
+    white = room.get("white_player") or {}
+    black = room.get("black_player") or {}
+    if uid == white.get("id"):
+        return {"status": "matched", "room_code": room_code, "opponent": black, "color": "white"}
+    return {"status": "matched", "room_code": room_code, "opponent": white, "color": "black"}
+
+@api_router.post("/online/matchmaking/queue")
+async def matchmaking_queue(req: MatchmakingRequest, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    me = _identity_for(current_user)
+    uid = me["id"]
+    _prune_match_queue()
+
+    # Already matched with someone -> hand over the room immediately
+    resp = await _match_response(uid)
+    if resp:
+        return resp
+
+    # Already waiting in the queue
+    if any(e["user_id"] == uid for e in _match_queue):
+        return {"status": "waiting", "in_queue": True}
+
+    # Try to pair with the next available opponent
+    now = _time.time()
+    for idx, opp in enumerate(_match_queue):
+        if opp["user_id"] == uid:
+            continue
+        _match_queue.pop(idx)
+
+        me_white = _pick_white(req.color_preference or "random")
+        room = await _create_match_room(
+            me, opp["player"], me_white, req.time_minutes or 10
+        )
+        _match_rooms[uid] = {"room_code": room["room_code"], "matched_at": now}
+        _match_rooms[opp["user_id"]] = {"room_code": room["room_code"], "matched_at": now}
+        opponent = room["black_player"] if me_white else room["white_player"]
+        return {
+            "status": "matched",
+            "room_code": room["room_code"],
+            "opponent": opponent,
+            "color": "white" if me_white else "black",
+        }
+
+    # No opponent available yet -> join the queue
+    _match_queue.append({
+        "user_id": uid,
+        "player": me,
+        "color_preference": req.color_preference or "random",
+        "time_minutes": req.time_minutes or 10,
+        "queued_at": now,
+    })
+    return {"status": "waiting", "in_queue": True}
+
+@api_router.get("/online/matchmaking/status")
+async def matchmaking_status(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    me = _identity_for(current_user)
+    uid = me["id"]
+    _prune_match_queue()
+
+    resp = await _match_response(uid)
+    if resp:
+        return resp
+
+    if any(e["user_id"] == uid for e in _match_queue):
+        return {"status": "waiting", "in_queue": True}
+
+    return {"status": "expired", "detail": "Matchmaking session ended. Please search again."}
+
+@api_router.post("/online/matchmaking/leave")
+async def matchmaking_leave(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
+    me = _identity_for(current_user)
+    uid = me["id"]
+    global _match_queue
+    _match_queue = [e for e in _match_queue if e["user_id"] != uid]
+    _match_rooms.pop(uid, None)
+    return {"status": "left"}
 
 # Define Models
 class StatusCheck(BaseModel):
