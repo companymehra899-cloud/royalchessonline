@@ -7,7 +7,7 @@ API = f"{BASE_URL}/api"
 
 class TestGoogleOAuthDirectConfig:
     """Covers: 'Preview Google OAuth configuration status is accurately exposed' and
-    'Google login frontend uses direct Google OAuth rather than Emergent-managed auth'
+    'Google login frontend uses direct Google OAuth'
     (backend half — the /api/auth/google code-exchange endpoint)."""
 
     def test_google_config_returns_500_when_unconfigured(self):
@@ -22,7 +22,7 @@ class TestGoogleOAuthDirectConfig:
 
     def test_google_code_exchange_rejects_bogus_code(self):
         """POST /api/auth/google with a bogus authorization code must be rejected (401),
-        not silently accepted, and must not create a user (Emergent-style fallback removed)."""
+        not silently accepted, and must not create a user."""
         r = requests.post(
             f"{API}/auth/google",
             json={"code": "tscheck-bogus-code-does-not-exist-12345", "redirect_uri": "https://example.com/"},
@@ -35,8 +35,8 @@ class TestGoogleOAuthDirectConfig:
         r = requests.post(f"{API}/auth/google", json={})
         assert r.status_code == 422, f"Expected 422, got {r.status_code}: {r.text}"
 
-    def test_no_emergent_session_endpoint_exists(self):
-        """The old Emergent-managed /api/auth/session exchange endpoint must be gone —
-        confirms the app no longer routes through Emergent auth."""
+    def test_no_session_endpoint_exists(self):
+        """The old /api/auth/session exchange endpoint must be gone —
+        confirms the app only uses direct Google OAuth."""
         r = requests.post(f"{API}/auth/session", json={"session_id": "anything"})
         assert r.status_code == 404, f"Expected /api/auth/session to be removed (404), got {r.status_code}"

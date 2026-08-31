@@ -12,7 +12,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const getRedirectUri = (): string => {
   if (Platform.OS === 'web') {
-    return window.location.origin + window.location.pathname;
+    return window.location.origin;
   }
   return Linking.createURL('');
 };
