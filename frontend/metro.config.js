@@ -3,7 +3,6 @@ const { getDefaultConfig } = require("expo/metro-config");
 const path = require('path');
 const http = require('http');
 const { FileStore } = require('metro-cache');
-const http = require('http');
 
 const config = getDefaultConfig(__dirname);
 
