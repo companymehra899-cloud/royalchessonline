@@ -49,9 +49,11 @@ const PIECE_NAMES: Record<PieceType, string> = {
 
 export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36 }) => {
   const colorName = color === 'w' ? 'White' : 'Black';
-  const widthMultiplier = type === 'k' || type === 'q' ? 1.2 : type === 'b' ? 1.1 : 1;
-  const renderedWidth = size * 1.19 * widthMultiplier;
-  const renderedHeight = size * (type === 'p' ? 0.79 : 0.9);
+  const isRoyal = type === 'k' || type === 'q';
+  const widthMultiplier = type === 'b' ? 1.1 : 1;
+  const renderedWidth = isRoyal ? size * 1.17 : size * 1.19 * widthMultiplier;
+  const renderedHeight = isRoyal ? size * 0.819 : size * (type === 'p' ? 0.79 : 0.9);
+  const resizeMode = isRoyal ? 'stretch' : 'contain';
   const left = (size - renderedWidth) / 2;
   const top = size - renderedHeight;
 
@@ -64,7 +66,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36 }
     >
       <Image
         source={PIECE_IMAGES[color][type]}
-        resizeMode="contain"
+        resizeMode={resizeMode}
         style={[
           styles.castShadow,
           { width: renderedWidth, height: renderedHeight, left, top: top + 1.5 },
@@ -72,7 +74,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color, size = 36 }
       />
       <Image
         source={PIECE_IMAGES[color][type]}
-        resizeMode="contain"
+        resizeMode={resizeMode}
         style={[styles.pieceImage, { width: renderedWidth, height: renderedHeight, left, top }]}
       />
     </View>
