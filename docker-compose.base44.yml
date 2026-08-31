@@ -30,6 +30,8 @@ services:
       ADMIN_EMAILS: ""
       LEAGUE_CLAIM_URL: ""
       PYTHONUNBUFFERED: "1"
+    env_file:
+      - /run/base44/app.env
     volumes:
       - ./:/app
       - pip-cache:/root/.cache/pip

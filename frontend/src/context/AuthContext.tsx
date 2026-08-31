@@ -3,40 +3,17 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import * as SecureStore from 'expo-secure-store';
 import { UserProfile } from '../types/chess';
 import { soundManager } from '../utils/audio';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const SESSION_TOKEN_KEY = 'chess_session_token';
 
-// Secure storage helpers: SecureStore on mobile, localStorage on web
-const saveSessionToken = async (token: string) => {
-  if (Platform.OS === 'web') {
-    localStorage.setItem(SESSION_TOKEN_KEY, token);
-  } else {
-    await SecureStore.setItemAsync(SESSION_TOKEN_KEY, token);
-  }
-};
-const getSessionToken = async (): Promise<string | null> => {
-  if (Platform.OS === 'web') {
-    return localStorage.getItem(SESSION_TOKEN_KEY);
-  }
-  return SecureStore.getItemAsync(SESSION_TOKEN_KEY);
-};
-const clearSessionToken = async () => {
-  if (Platform.OS === 'web') {
-    localStorage.removeItem(SESSION_TOKEN_KEY);
-  } else {
-    await SecureStore.deleteItemAsync(SESSION_TOKEN_KEY);
-  }
-};
-
-const extractSessionId = (url: string | null | undefined): string | null => {
+// Extract a Google OAuth authorization `code` from a callback URL.
+const extractCode = (url: string | null | undefined): string | null => {
   if (!url) return null;
-  const match = url.match(/[?#&]session_id=([^&#]+)/);
+  const match = url.match(/[?#&]code=([^&#]+)/);
   return match ? decodeURIComponent(match[1]) : null;
 };
 
@@ -60,45 +37,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const processedSessionIds = useRef<Set<string>>(new Set());
+  const processedCodes = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    loadStoredSession();
-
-    // Mobile: listen for OAuth deep links (hot links). On Android the auth
-    // browser often returns "dismiss" with no URL even on success, so this
-    // listener is a co-equal source for the callback URL.
-    if (Platform.OS !== 'web') {
-      const sub = Linking.addEventListener('url', (event) => {
-        const sessionId = extractSessionId(event.url);
-        if (sessionId) {
-          exchangeSession(sessionId).catch(() => {});
-        }
-      });
-      return () => sub.remove();
-    }
-  }, []);
-
-  // Exchange one-time session_id (from Google redirect) for a 7-day session token
-  const exchangeSession = async (sessionId: string): Promise<{ success: boolean; error?: string }> => {
-    if (processedSessionIds.current.has(sessionId)) {
+  // Exchange a Google OAuth authorization code for our own JWT + user.
+  // The backend verifies the code with Google (server-side, using the client
+  // secret) and returns the same { token, user } shape as email/password login.
+  const exchangeGoogleCode = async (
+    code: string,
+    redirectUri: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (processedCodes.current.has(code)) {
       return { success: true };
     }
-    processedSessionIds.current.add(sessionId);
+    processedCodes.current.add(code);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/session`, {
+      const res = await fetch(`${BACKEND_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId }),
+        body: JSON.stringify({ code, redirect_uri: redirectUri }),
       });
       const data = await res.json();
       if (!res.ok) {
         return { success: false, error: data.detail || 'Google login failed' };
       }
-      await saveSessionToken(data.session_token);
+      await AsyncStorage.setItem('chess_arena_token', data.token);
       await AsyncStorage.setItem('chess_arena_user', JSON.stringify(data.user));
-      await AsyncStorage.removeItem('chess_arena_token');
-      setToken(data.session_token);
+      setToken(data.token);
       setUser(data.user);
       soundManager.setSoundEnabled(data.user.sound_enabled ?? true);
       soundManager.setVibrationEnabled(data.user.vibration_enabled ?? true);
@@ -109,18 +73,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  useEffect(() => {
+    loadStoredSession();
+
+    // Mobile: listen for OAuth deep links (hot links). On Android the auth
+    // browser often returns "dismiss" with no URL even on success, so this
+    // listener is a co-equal source for the callback URL.
+    if (Platform.OS !== 'web') {
+      const sub = Linking.addEventListener('url', (event) => {
+        const code = extractCode(event.url);
+        if (code) {
+          const redirectUri = Linking.createURL('');
+          exchangeGoogleCode(code, redirectUri).catch(() => {});
+        }
+      });
+      return () => sub.remove();
+    }
+  }, []);
+
   const loadStoredSession = async () => {
     try {
-      // 1) Process a Google OAuth callback session_id FIRST (before any other session logic)
+      // 1) Process a Google OAuth callback code FIRST (before any other session logic)
       if (Platform.OS === 'web') {
-        const sessionId =
-          extractSessionId(window.location.hash) || extractSessionId(window.location.search);
-        if (sessionId) {
-          const result = await exchangeSession(sessionId);
+        const code =
+          extractCode(window.location.search) || extractCode(window.location.hash);
+        if (code) {
+          const redirectUri = window.location.origin;
+          const result = await exchangeGoogleCode(code, redirectUri);
           if (result.success) {
-            // Clean only session_id from the URL, preserve other params
-            const cleanedHash = window.location.hash.replace(/[?#&]?session_id=[^&#]+/, '');
-            const cleanedSearch = window.location.search.replace(/[?&]session_id=[^&#]+/, '');
+            // Clean OAuth callback params from the URL, preserve anything else
+            const cleanedSearch = window.location.search
+              .replace(/[?&]code=[^&#]+/, '')
+              .replace(/[?&]scope=[^&#]+/, '');
+            const cleanedHash = window.location.hash.replace(/[?#&]code=[^&#]+/, '');
             window.history.replaceState(
               window.history.state,
               '',
@@ -131,27 +116,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         const initialUrl = await Linking.getInitialURL();
-        const sessionId = extractSessionId(initialUrl);
-        if (sessionId) {
-          const result = await exchangeSession(sessionId);
+        const code = extractCode(initialUrl);
+        if (code) {
+          const redirectUri = Linking.createURL('');
+          const result = await exchangeGoogleCode(code, redirectUri);
           if (result.success) return;
         }
       }
 
-      // 2) Google session token (7-day) stored securely
-      const googleToken = await getSessionToken();
-      const savedUser = await AsyncStorage.getItem('chess_arena_user');
-      if (googleToken && savedUser) {
-        setToken(googleToken);
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        soundManager.setSoundEnabled(parsedUser.sound_enabled ?? true);
-        soundManager.setVibrationEnabled(parsedUser.vibration_enabled ?? true);
-        return;
-      }
-
-      // 3) Existing email/password or guest JWT session
+      // 2) Existing email/password or guest JWT session
       const savedToken = await AsyncStorage.getItem('chess_arena_token');
+      const savedUser = await AsyncStorage.getItem('chess_arena_user');
       if (savedToken && savedUser) {
         setToken(savedToken);
         const parsedUser = JSON.parse(savedUser);
@@ -268,35 +243,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const googleLogin = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       if (Platform.OS === 'web') {
-        const redirectUrl = window.location.origin + '/';
-        const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-        // Full-page navigation; session_id is processed on remount
-        window.location.href = authUrl;
+        const redirectUri = window.location.origin;
+        const res = await fetch(
+          `${BACKEND_URL}/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}`
+        );
+        const data = await res.json();
+        if (!res.ok || !data.auth_url) {
+          return { success: false, error: data.detail || 'Google sign-in is not configured.' };
+        }
+        // Full-page navigation to Google; the authorization code is processed on remount
+        window.location.href = data.auth_url;
         return { success: true };
       }
 
       // Mobile: capture deep link via listener too (Android may return dismiss with no URL)
       let capturedUrl: string | null = null;
       const sub = Linking.addEventListener('url', (event) => {
-        if (extractSessionId(event.url)) capturedUrl = event.url;
+        if (extractCode(event.url)) capturedUrl = event.url;
       });
 
-      const redirectUrl = Linking.createURL('');
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+      const redirectUri = Linking.createURL('');
+      const res = await fetch(
+        `${BACKEND_URL}/api/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}`
+      );
+      const data = await res.json();
+      if (!res.ok || !data.auth_url) {
+        sub.remove();
+        return { success: false, error: data.detail || 'Google sign-in is not configured.' };
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.auth_url, redirectUri);
       sub.remove();
 
-      let sessionId: string | null = null;
+      let code: string | null = null;
       if (result.type === 'success' && result.url) {
-        sessionId = extractSessionId(result.url);
+        code = extractCode(result.url);
       }
-      if (!sessionId) sessionId = extractSessionId(capturedUrl);
-      if (!sessionId) sessionId = extractSessionId(await Linking.getInitialURL());
+      if (!code) code = extractCode(capturedUrl);
+      if (!code) code = extractCode(await Linking.getInitialURL());
 
-      if (!sessionId) {
+      if (!code) {
         return { success: false, error: 'Google sign-in was cancelled.' };
       }
-      return await exchangeSession(sessionId);
+      return await exchangeGoogleCode(code, redirectUri);
     } catch (e) {
       return { success: false, error: 'Google login failed. Please try again.' };
     }
@@ -305,7 +294,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await AsyncStorage.removeItem('chess_arena_token');
     await AsyncStorage.removeItem('chess_arena_user');
-    await clearSessionToken();
     setToken(null);
     setUser(null);
   };

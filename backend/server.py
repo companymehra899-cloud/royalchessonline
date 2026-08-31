@@ -20,6 +20,9 @@ import chess
 import asyncio
 import time as _time
 from pymongo.errors import DuplicateKeyError
+from urllib.parse import urlencode
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_auth_requests
 
 from chess_engine import get_best_move, get_hint, CURATED_PUZZLES, evaluate_board
 
