@@ -18,6 +18,7 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { GameHistoryItem } from '../types/chess';
 import { AVATARS, getAvatar } from '../utils/avatars';
+import { COUNTRIES, getCountry } from '../utils/countries';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -34,6 +35,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
   const [avatarModal, setAvatarModal] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [countryModal, setCountryModal] = useState(false);
+  const userCountry = getCountry(user?.country);
 
   const currentAvatar = getAvatar(user?.avatar_id);
 
@@ -218,6 +221,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}
+            onPress={() => setCountryModal(true)}
+          >
+            <View style={styles.menuLeft}>
+              <MaterialCommunityIcons name="flag-outline" size={22} color={colors.textSecondary} />
+              <Text style={styles.menuText}>Country</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.menuValue}>
+                {userCountry ? `${userCountry.flag} ${userCountry.name}` : 'Not set'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
             <View style={styles.menuLeft}>
               <MaterialCommunityIcons name="account-group-outline" size={22} color={colors.textSecondary} />
@@ -377,6 +395,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
           </View>
         </View>
       </Modal>
+      {/* Country Picker Modal */}
+      <Modal visible={countryModal} animationType="slide" onRequestClose={() => setCountryModal(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setCountryModal(false)}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>SELECT COUNTRY</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <FlatList
+            data={COUNTRIES}
+            keyExtractor={(c) => c.code}
+            contentContainerStyle={{ padding: 16 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.countryRow,
+                  userCountry?.code === item.code && styles.countryRowSelected,
+                ]}
+                onPress={async () => {
+                  await updateProfile({ country: item.code });
+                  setCountryModal(false);
+                }}
+              >
+                <Text style={styles.countryFlag}>{item.flag}</Text>
+                <Text style={styles.countryName}>{item.name}</Text>
+                {userCountry?.code === item.code && (
+                  <MaterialCommunityIcons name="check" size={20} color={colors.gold} />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -516,6 +570,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 14,
+  },
+  menuValue: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 8,
   },
   logoutRow: {
     flexDirection: 'row',
@@ -692,5 +752,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
+  },
+  countryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  countryRowSelected: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  },
+  countryFlag: {
+    fontSize: 28,
+    marginRight: 14,
+  },
+  countryName: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

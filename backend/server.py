@@ -234,10 +234,23 @@ async def init_db():
         leaderboard_count = await db.users.count_documents({})
         if leaderboard_count <= 2:
             sample_players = [
-                {"id": "bot_gm_1", "email": "magnus@chess.ai", "username": "Grandmaster Magnus", "rating": 2180, "best_rating": 2240, "games_played": 420, "wins": 360, "losses": 30, "draws": 30, "avatar_id": "king_gold", "joined_date": "Joined Jan 2024"},
-                {"id": "bot_gm_2", "email": "hikaru@chess.ai", "username": "HikaruSpeed", "rating": 2040, "best_rating": 2110, "games_played": 350, "wins": 280, "losses": 45, "draws": 25, "avatar_id": "queen_gold", "joined_date": "Joined Feb 2024"},
-                {"id": "bot_gm_3", "email": "kasparov@chess.ai", "username": "TacticsMaster", "rating": 1820, "best_rating": 1900, "games_played": 190, "wins": 130, "losses": 40, "draws": 20, "avatar_id": "rook_gold", "joined_date": "Joined Mar 2024"},
-                {"id": "bot_gm_4", "email": "arena_champ@chess.ai", "username": "ObsidianKnight", "rating": 1540, "best_rating": 1600, "games_played": 88, "wins": 55, "losses": 25, "draws": 8, "avatar_id": "knight_gold", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_1", "email": "magnus@chess.ai", "username": "Grandmaster Magnus", "rating": 2180, "best_rating": 2240, "games_played": 420, "wins": 360, "losses": 30, "draws": 30, "avatar_id": "king_gold", "country": "NO", "joined_date": "Joined Jan 2024"},
+                {"id": "bot_gm_2", "email": "hikaru@chess.ai", "username": "HikaruSpeed", "rating": 2040, "best_rating": 2110, "games_played": 350, "wins": 280, "losses": 45, "draws": 25, "avatar_id": "queen_gold", "country": "US", "joined_date": "Joined Feb 2024"},
+                {"id": "bot_gm_3", "email": "kasparov@chess.ai", "username": "TacticsMaster", "rating": 1820, "best_rating": 1900, "games_played": 190, "wins": 130, "losses": 40, "draws": 20, "avatar_id": "rook_gold", "country": "RU", "joined_date": "Joined Mar 2024"},
+                {"id": "bot_gm_4", "email": "arena_champ@chess.ai", "username": "ObsidianKnight", "rating": 1540, "best_rating": 1600, "games_played": 88, "wins": 55, "losses": 25, "draws": 8, "avatar_id": "knight_gold", "country": "IN", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_5", "email": "fabiano@chess.ai", "username": "SsBuiltNinja", "rating": 4826, "best_rating": 4900, "games_played": 512, "wins": 430, "losses": 42, "draws": 40, "avatar_id": "king_gold", "country": "US", "joined_date": "Joined Jan 2024"},
+                {"id": "bot_gm_6", "email": "fabie2@chess.ai", "username": "I-saint2", "rating": 4182, "best_rating": 4250, "games_played": 480, "wins": 390, "losses": 50, "draws": 40, "avatar_id": "queen_gold", "country": "US", "joined_date": "Joined Feb 2024"},
+                {"id": "bot_gm_7", "email": "fabie3@chess.ai", "username": "guillfer53", "rating": 3974, "best_rating": 4050, "games_played": 410, "wins": 340, "losses": 40, "draws": 30, "avatar_id": "rook_gold", "country": "US", "joined_date": "Joined Mar 2024"},
+                {"id": "bot_gm_8", "email": "fabie4@chess.ai", "username": "tigre12", "rating": 3797, "best_rating": 3850, "games_played": 380, "wins": 310, "losses": 38, "draws": 32, "avatar_id": "knight_gold", "country": "US", "joined_date": "Joined Mar 2024"},
+                {"id": "bot_gm_9", "email": "fabie5@chess.ai", "username": "Nite Moves", "rating": 3797, "best_rating": 3800, "games_played": 360, "wins": 290, "losses": 42, "draws": 28, "avatar_id": "bishop_gold", "country": "US", "joined_date": "Joined Feb 2024"},
+                {"id": "bot_gm_10", "email": "fabie6@chess.ai", "username": "ElricWard", "rating": 3580, "best_rating": 3650, "games_played": 330, "wins": 260, "losses": 40, "draws": 30, "avatar_id": "knight_gold", "country": "US", "joined_date": "Joined Mar 2024"},
+                {"id": "bot_gm_11", "email": "fabie7@chess.ai", "username": "delez", "rating": 3544, "best_rating": 3600, "games_played": 310, "wins": 250, "losses": 35, "draws": 25, "avatar_id": "rook_gold", "country": "US", "joined_date": "Joined Mar 2024"},
+                {"id": "bot_gm_12", "email": "fabie8@chess.ai", "username": "ABD_Miramesa", "rating": 3531, "best_rating": 3580, "games_played": 300, "wins": 240, "losses": 38, "draws": 22, "avatar_id": "queen_gold", "country": "US", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_13", "email": "fabie9@chess.ai", "username": "Gbe", "rating": 3488, "best_rating": 3550, "games_played": 290, "wins": 230, "losses": 36, "draws": 24, "avatar_id": "king_gold", "country": "US", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_14", "email": "fabie10@chess.ai", "username": "Alice V", "rating": 3437, "best_rating": 3500, "games_played": 280, "wins": 220, "losses": 35, "draws": 25, "avatar_id": "bishop_gold", "country": "US", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_15", "email": "fabie11@chess.ai", "username": "Fidelity", "rating": 3406, "best_rating": 3450, "games_played": 270, "wins": 210, "losses": 34, "draws": 26, "avatar_id": "rook_gold", "country": "US", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_16", "email": "fabie12@chess.ai", "username": "you won't win", "rating": 3396, "best_rating": 3450, "games_played": 265, "wins": 205, "losses": 33, "draws": 27, "avatar_id": "knight_gold", "country": "US", "joined_date": "Joined Apr 2024"},
+                {"id": "bot_gm_17", "email": "fabie13@chess.ai", "username": "Bayamon", "rating": 3325, "best_rating": 3380, "games_played": 250, "wins": 190, "losses": 35, "draws": 25, "avatar_id": "queen_gold", "country": "US", "joined_date": "Joined Apr 2024"},
             ]
             for p in sample_players:
                 exists = await db.users.find_one({"id": p["id"]})
@@ -274,6 +287,7 @@ async def register(req: UserRegister):
         "draws": 0,
         "puzzles_solved": 0,
         "avatar_id": "knight_gold",
+        "country": None,
         "board_theme": "wood",
         "piece_theme": "classic",
         "difficulty": "easy",
@@ -338,6 +352,7 @@ async def guest_login(req: GuestLogin):
         "draws": 0,
         "puzzles_solved": 0,
         "avatar_id": "pawn_gold",
+        "country": None,
         "board_theme": "wood",
         "piece_theme": "classic",
         "difficulty": "easy",
@@ -653,8 +668,11 @@ async def complete_puzzle(req: CompletePuzzleRequest, current_user: Dict[str, An
 
 # --- Leaderboard Route ---
 @api_router.get("/leaderboard")
-async def get_leaderboard(limit: int = 10):
-    cursor = db.users.find({}, {"_id": 0, "password_hash": 0}).sort("rating", -1).limit(limit)
+async def get_leaderboard(limit: int = 20, country: Optional[str] = None):
+    query: Dict[str, Any] = {}
+    if country:
+        query["country"] = country.upper()
+    cursor = db.users.find(query, {"_id": 0, "password_hash": 0}).sort("rating", -1).limit(limit)
     players = await cursor.to_list(limit)
     return players
 

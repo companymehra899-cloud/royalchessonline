@@ -10,7 +10,8 @@ import {
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { colors } from '../theme/colors';
 import { UserProfile } from '../types/chess';
-import { UserAvatar } from '../components/UserAvatar';
+import { useAuth } from '../context/AuthContext';
+import { CountryFlag } from '../components/CountryFlag';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -19,17 +20,28 @@ interface LeaderboardScreenProps {
   onOpenSettings: () => void;
 }
 
+type FilterMode = 'global' | 'national';
+
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, onOpenSettings }) => {
+  const { user } = useAuth();
   const [players, setPlayers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterMode>('global');
+
+  const userCountry = user?.country;
+  const isNational = filter === 'national' && !!userCountry;
 
   useEffect(() => {
     fetchLeaderboard();
-  }, []);
+  }, [filter]);
 
   const fetchLeaderboard = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/leaderboard`);
+      const params = new URLSearchParams();
+      if (isNational) params.set('country', userCountry!);
+      const url = `${BACKEND_URL}/api/leaderboard?${params.toString()}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setPlayers(data);
@@ -46,62 +58,101 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, on
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={onBack}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>TOP PLAYERS</Text>
+        <Text style={styles.headerTitle}>Rankings</Text>
         <TouchableOpacity style={styles.headerBtn} onPress={onOpenSettings}>
-          <MaterialCommunityIcons name="cog-outline" size={24} color={colors.textPrimary} />
+          <MaterialCommunityIcons name="cog-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={colors.gold} />
-        </View>
-      ) : (
-        <FlatList
-          data={players}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item, index }) => {
-            const rank = index + 1;
-            const isTop3 = rank <= 3;
-            const medalColor = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : colors.textTertiary;
+      {/* Filter Toggle */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={[styles.filterTab, filter === 'global' && styles.filterTabActive]}
+          onPress={() => setFilter('global')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name="earth"
+            size={18}
+            color={filter === 'global' ? '#0b0e14' : colors.textSecondary}
+          />
+          <Text style={[styles.filterText, filter === 'global' && styles.filterTextActive]}>
+            Global
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, filter === 'national' && styles.filterTabNational]}
+          onPress={() => setFilter('national')}
+          activeOpacity={0.8}
+        >
+          {userCountry ? (
+            <CountryFlag code={userCountry} size={16} />
+          ) : (
+            <MaterialCommunityIcons name="flag-outline" size={18} color={colors.textSecondary} />
+          )}
+          <Text style={[styles.filterText, filter === 'national' && styles.filterTextActive]}>
+            National
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-            return (
-              <View style={[styles.playerRow, rank === 1 && styles.playerRowFirst]}>
-                <View style={styles.rankCol}>
-                  {isTop3 ? (
-                    <MaterialCommunityIcons name="trophy" size={22} color={medalColor} />
-                  ) : (
-                    <Text style={styles.rankNum}>{rank}</Text>
-                  )}
+      {/* Leaderboard List */}
+      <View style={styles.listContainer}>
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.gold} />
+          </View>
+        ) : (
+          <FlatList
+            data={players}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item, index }) => {
+              const rank = index + 1;
+              const isTop3 = rank <= 3;
+              const medalColor = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : colors.textTertiary;
+
+              return (
+                <View style={styles.playerRow}>
+                  {/* Rank */}
+                  <View style={styles.rankCol}>
+                    {isTop3 ? (
+                      <MaterialCommunityIcons name="trophy" size={20} color={medalColor} />
+                    ) : (
+                      <Text style={styles.rankNum}>#{rank}</Text>
+                    )}
+                  </View>
+
+                  {/* Country Flag */}
+                  <View style={styles.flagCol}>
+                    <CountryFlag code={item.country} size={24} />
+                  </View>
+
+                  {/* Player Name */}
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>{item.username}</Text>
+                    <Text style={styles.playerStats}>
+                      {item.games_played || 0} games • {item.wins || 0} wins
+                    </Text>
+                  </View>
+
+                  {/* Rating */}
+                  <View style={styles.ratingCol}>
+                    <MaterialCommunityIcons
+                      name="chart-bar"
+                      size={16}
+                      color="#ff5722"
+                    />
+                    <Text style={styles.ratingNum}>{item.rating || 1200}</Text>
+                  </View>
                 </View>
-
-                <UserAvatar
-                  avatarId={item.avatar_id}
-                  avatarUrl={item.avatar_url}
-                  size={38}
-                  iconSize={20}
-                  borderColor={colors.borderLight}
-                  borderWidth={1}
-                  style={{ marginHorizontal: 12 }}
-                />
-
-                <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{item.username}</Text>
-                  <Text style={styles.playerStats}>{item.games_played || 0} games • {item.wins || 0} wins</Text>
-                </View>
-
-                <View style={styles.ratingCol}>
-                  <Text style={styles.ratingNum}>{item.rating || 1200}</Text>
-                  <Text style={styles.ratingSub}>ELO</Text>
-                </View>
-              </View>
-            );
-          }}
-        />
-      )}
+              );
+            }}
+          />
+        )}
+      </View>
     </View>
   );
 };
@@ -118,87 +169,99 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 48,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#161d2b',
+    backgroundColor: '#184e68',
   },
   headerTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 2,
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
   },
   headerBtn: {
     padding: 6,
+  },
+  filterBar: {
+    flexDirection: 'row',
+    margin: 16,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  filterTabActive: {
+    backgroundColor: '#ffe8c6',
+  },
+  filterTabNational: {
+    backgroundColor: '#ff9800',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  filterTextActive: {
+    color: '#0b0e14',
+  },
+  listContainer: {
+    flex: 1,
+    backgroundColor: '#fffaf0',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 40,
   },
   loadingBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  playerRowFirst: {
-    borderColor: colors.gold,
-    backgroundColor: '#1b202c',
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e8e0d0',
   },
   rankCol: {
-    width: 32,
+    width: 42,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   rankNum: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '800',
+    color: '#555',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  avatarMini: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#1b2333',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+  flagCol: {
+    marginLeft: 8,
+    marginRight: 12,
   },
   playerInfo: {
     flex: 1,
   },
   playerName: {
-    color: colors.textPrimary,
+    color: '#000',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   playerStats: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: '#666',
+    fontSize: 11,
     marginTop: 2,
   },
   ratingCol: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   ratingNum: {
-    color: colors.gold,
+    color: '#000',
     fontSize: 16,
-    fontWeight: '800',
-  },
-  ratingSub: {
-    color: colors.textTertiary,
-    fontSize: 10,
     fontWeight: '700',
   },
 });

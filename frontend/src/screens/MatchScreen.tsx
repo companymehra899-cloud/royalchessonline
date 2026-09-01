@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGameSettings } from '../context/GameSettingsContext';
 import { soundManager } from '../utils/audio';
 import { UserAvatar } from '../components/UserAvatar';
+import { CountryFlag } from '../components/CountryFlag';
 import { GameMode, AIDifficulty } from '../types/chess';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -282,6 +283,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
           </View>
           <View style={styles.playerNameCol}>
             <View style={styles.nameStatusRow}>
+              <CountryFlag code={null} size={18} />
               <Text style={styles.playerName}>{opponentTitle}</Text>
               <View style={styles.greenDot} />
             </View>
@@ -346,6 +348,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
           />
           <View style={styles.playerNameCol}>
             <View style={styles.nameStatusRow}>
+              <CountryFlag code={user?.country} size={18} />
               <Text style={styles.playerName}>You</Text>
               <View style={styles.greenDot} />
             </View>
@@ -442,6 +445,7 @@ const styles = StyleSheet.create({
   nameStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   playerName: {
     color: colors.textPrimary,
