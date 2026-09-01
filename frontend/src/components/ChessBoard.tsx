@@ -166,14 +166,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     />
                   )}
 
-                  {/* Legal move indicator (dot for empty, ring for capture) */}
-                  {isLegalTarget && !isCaptureTarget && (
-                    <View style={styles.legalDot} />
-                  )}
-                  {isCaptureTarget && (
-                    <View style={styles.captureRing} />
-                  )}
-
                   {/* Rank & File coordinate notation labels */}
                   {fileIdx === 0 && (
                     <Text
