@@ -132,15 +132,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
         {/* Big Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarBig}>
-            {user?.avatar_url ? (
-              <Image
-                source={{ uri: user.avatar_url }}
-                style={styles.avatarBigImg}
-                contentFit="cover"
-              />
-            ) : (
-              <MaterialCommunityIcons name={currentAvatar.icon} size={54} color={currentAvatar.color} />
-            )}
+            <Image
+              source={{ uri: user?.avatar_url || currentAvatar.image }}
+              style={styles.avatarBigImg}
+              contentFit="cover"
+              transition={150}
+              cachePolicy="memory-disk"
+            />
             <TouchableOpacity style={styles.editAvatarBtn} onPress={() => setAvatarModal(true)}>
               <MaterialCommunityIcons name="pencil" size={14} color="#0b0e14" />
             </TouchableOpacity>
@@ -317,11 +315,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
       </Modal>
 
       {/* Avatar Picker Modal */}
-      <Modal visible={avatarModal} transparent animationType="fade" onRequestClose={() => setAvatarModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalHeading}>Choose Avatar</Text>
+      <Modal visible={avatarModal} animationType="slide" onRequestClose={() => setAvatarModal(false)}>
+        <View style={styles.avatarModalContainer}>
+          <View style={styles.avatarModalHeader}>
+            <TouchableOpacity onPress={() => setAvatarModal(false)} style={styles.headerBtn}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.avatarModalTitle}>CHOOSE AVATAR</Text>
+            <View style={{ width: 36 }} />
+          </View>
 
+          <ScrollView contentContainerStyle={styles.avatarModalScroll} showsVerticalScrollIndicator={false}>
             <TouchableOpacity
               style={styles.uploadBtn}
               onPress={pickAndUploadAvatar}
@@ -338,8 +342,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
               )}
             </TouchableOpacity>
 
-            <View style={styles.divider} />
-            <Text style={styles.dividerLabel}>OR PICK AN AVATAR</Text>
+            <View style={styles.avatarDivider} />
+            <Text style={styles.dividerLabel}>OR PICK A CHARACTER</Text>
 
             <View style={styles.avatarGrid}>
               {AVATARS.map((a) => (
@@ -357,8 +361,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
                     setAvatarModal(false);
                   }}
                 >
-                  <View style={[styles.avatarOptionCircle, { borderColor: a.color }]}>
-                    <MaterialCommunityIcons name={a.icon} size={32} color={a.color} />
+                  <View style={[
+                    styles.avatarOptionPortrait,
+                    currentAvatar.id === a.id && styles.avatarOptionPortraitSelected,
+                  ]}>
+                    <Image
+                      source={{ uri: a.image }}
+                      style={styles.avatarOptionImg}
+                      contentFit="cover"
+                      transition={120}
+                      cachePolicy="memory-disk"
+                    />
+                    {currentAvatar.id === a.id && (
+                      <View style={styles.avatarOptionCheckBadge}>
+                        <MaterialCommunityIcons name="check" size={14} color="#0b0e14" />
+                      </View>
+                    )}
                   </View>
                   <Text
                     style={[
@@ -368,13 +386,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
                   >
                     {a.label}
                   </Text>
-                  {currentAvatar.id === a.id && (
-                    <MaterialCommunityIcons name="check" size={16} color={colors.gold} style={styles.avatarOptionCheck} />
-                  )}
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+            <View style={{ height: 24 }} />
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -607,27 +623,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  modalOverlay: {
+  avatarModalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  avatarModalHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#161d2b',
   },
-  modalCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
-  },
-  modalHeading: {
-    color: colors.textPrimary,
-    fontSize: 18,
+  avatarModalTitle: {
+    color: colors.gold,
+    fontSize: 16,
     fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 16,
+    letterSpacing: 1.5,
+  },
+  avatarModalScroll: {
+    padding: 20,
+    paddingBottom: 40,
   },
   uploadBtn: {
     flexDirection: 'row',
@@ -644,7 +662,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginLeft: 8,
   },
-  divider: {
+  avatarDivider: {
     height: 1,
     backgroundColor: '#2a3346',
     marginBottom: 10,
@@ -655,7 +673,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   avatarGrid: {
     flexDirection: 'row',
@@ -665,32 +683,41 @@ const styles = StyleSheet.create({
   avatarOption: {
     width: '31%',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 10,
+    marginBottom: 12,
     position: 'relative',
   },
-  avatarOptionSelected: {
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-  },
-  avatarOptionCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  avatarOptionSelected: {},
+  avatarOptionPortrait: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 14,
     backgroundColor: '#1b2233',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
+    overflow: 'hidden',
     marginBottom: 6,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  avatarOptionLabel: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
+  avatarOptionPortraitSelected: {
+    borderColor: colors.gold,
   },
-  avatarOptionCheck: {
+  avatarOptionImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarOptionCheckBadge: {
     position: 'absolute',
     top: 6,
     right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOptionLabel: {
+    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
