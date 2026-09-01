@@ -607,6 +607,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+  },
+  modalHeading: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
