@@ -241,7 +241,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     setOpponentTime(10 * 60);
     setGameOver(false);
     setPendingConfirmMove(null);
-    setCapturedPieces({ white: [], black: [] });
+    setCapturedPieces({ w: [], b: [] });
   };
 
   const formatTime = (secs: number) => {
@@ -350,7 +350,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
               <View style={styles.greenDot} />
             </View>
             <Text style={styles.userRatingSub}>{user?.rating || 1200}</Text>
-            <CapturedPieces pieces={capturedPieces.white} color="b" size={15} />
+            <CapturedPieces pieces={capturedPieces.w} color="b" size={15} />
           </View>
         </View>
         <View style={[styles.timerBadge, game.turn() === 'w' && styles.timerBadgeActive]}>

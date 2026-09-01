@@ -27,6 +27,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   flipped = false,
   boardTheme = 'wood',
   pieceTheme = 'classic',
+  lastMove,
   interactive = true,
   onMove,
   confirmMoveEnabled = false,
@@ -125,6 +126,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               const piece = game.get(sqName);
 
               const isCheckKing = checkKingSquare === sqName;
+              const isSelected = selectedSquare === sqName;
+              const isLegalTarget = legalMoves.some((m) => m.to === sqName);
+              const isCaptureTarget = isLegalTarget && !!piece;
+              const isLastMove = lastMove && (lastMove.from === sqName || lastMove.to === sqName);
 
               return (
                 <TouchableOpacity
@@ -139,9 +144,23 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       height: SQUARE_SIZE,
                       backgroundColor: squareBg,
                     },
-                    isCheckKing && styles.checkSquare,
                   ]}
                 >
+                  {/* Last move highlight */}
+                  {isLastMove && (
+                    <View style={[styles.overlay, { backgroundColor: currentBoardTheme.highlight }]} />
+                  )}
+
+                  {/* Selected square highlight */}
+                  {isSelected && (
+                    <View style={[styles.overlay, { backgroundColor: currentBoardTheme.selected }]} />
+                  )}
+
+                  {/* Check highlight */}
+                  {isCheckKing && (
+                    <View style={[styles.overlay, styles.checkOverlay]} />
+                  )}
+
                   {/* Piece Render */}
                   {piece && (
                     <ChessPiece
@@ -150,6 +169,14 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                       size={SQUARE_SIZE * 0.9}
                       theme={pieceTheme}
                     />
+                  )}
+
+                  {/* Legal move indicator (dot for empty, ring for capture) */}
+                  {isLegalTarget && !isCaptureTarget && (
+                    <View style={styles.legalDot} />
+                  )}
+                  {isCaptureTarget && (
+                    <View style={styles.captureRing} />
                   )}
 
                   {/* Rank & File coordinate notation labels */}
@@ -195,18 +222,18 @@ const styles = StyleSheet.create({
   boardWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 6,
+    marginVertical: 8,
   },
   boardContainer: {
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#2b2313',
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   row: {
     flexDirection: 'row',
@@ -216,8 +243,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  checkSquare: {
-    backgroundColor: 'rgba(239, 68, 68, 0.75)',
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  checkOverlay: {
+    backgroundColor: 'rgba(239, 68, 68, 0.6)',
+  },
+  legalDot: {
+    position: 'absolute',
+    width: SQUARE_SIZE * 0.3,
+    height: SQUARE_SIZE * 0.3,
+    borderRadius: SQUARE_SIZE * 0.15,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  captureRing: {
+    position: 'absolute',
+    width: SQUARE_SIZE * 0.82,
+    height: SQUARE_SIZE * 0.82,
+    borderRadius: SQUARE_SIZE * 0.41,
+    borderWidth: 3,
+    borderColor: 'rgba(0, 0, 0, 0.3)',
   },
   coordRank: {
     position: 'absolute',
@@ -225,7 +274,7 @@ const styles = StyleSheet.create({
     left: 3,
     fontSize: 9,
     fontWeight: '700',
-    opacity: 0.8,
+    opacity: 0.6,
   },
   coordFile: {
     position: 'absolute',
@@ -233,6 +282,6 @@ const styles = StyleSheet.create({
     right: 3,
     fontSize: 9,
     fontWeight: '700',
-    opacity: 0.8,
+    opacity: 0.6,
   },
 });
