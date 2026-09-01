@@ -49,6 +49,16 @@ class SoundManager {
 
   setSoundEnabled(enabled: boolean) {
     this.soundEnabled = enabled;
+    if (enabled) {
+      // Create + resume the AudioContext during this user gesture (the toggle)
+      // so the browser unlocks audio for subsequent playTone() calls.
+      const ctx = this.ensureAudio();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      // Play a short confirmation tone so the user hears sound immediately.
+      this.playTone(440, 'sine', 0.1, 0.15);
+    }
   }
 
   setVibrationEnabled(enabled: boolean) {

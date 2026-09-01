@@ -32,7 +32,9 @@ docker compose -f docker-compose.base44.yml up -d
 
 ## Dev notes
 - Backend deps install on container start (apt-get gcc/g++, then `pip install`).
-  `bcrypt`/`cryptography` may compile from source.
+  `bcrypt`/`cryptography` may compile from source. Version pins in
+  `backend/requirements.txt` were relaxed to `>=` ranges because several exact
+  pins (`python-chess==1.10.0`, `pyjwt==2.8.1`) don't exist on PyPI for Python 3.13.
 - Frontend uses **yarn** (packageManager in package.json). There is a `package-lock.json`
   (npm) but no `yarn.lock`; yarn resolves on each start. The `preinstall` cmd-guard hook
   validates package.json deps — it passes for the committed deps.
