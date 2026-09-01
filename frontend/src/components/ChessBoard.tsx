@@ -146,11 +146,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     },
                   ]}
                 >
-                  {/* Last move highlight */}
-                  {isLastMove && (
-                    <View style={[styles.overlay, { backgroundColor: currentBoardTheme.highlight }]} />
-                  )}
-
                   {/* Selected square highlight */}
                   {isSelected && (
                     <View style={[styles.overlay, { backgroundColor: currentBoardTheme.selected }]} />
