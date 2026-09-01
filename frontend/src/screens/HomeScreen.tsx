@@ -9,6 +9,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { UserAvatar } from '../components/UserAvatar';
 import { GameMode } from '../types/chess';
 
 interface HomeScreenProps {
@@ -51,9 +52,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* User Card */}
         <TouchableOpacity style={styles.userCard} testID="user-profile-card" onPress={onOpenProfile} activeOpacity={0.85}>
-          <View style={styles.avatarCircle}>
-            <MaterialCommunityIcons name="chess-pawn" size={32} color={colors.gold} />
-          </View>
+          <UserAvatar
+            avatarId={user?.avatar_id}
+            avatarUrl={user?.avatar_url}
+            size={52}
+            iconSize={32}
+            borderColor={colors.gold}
+            borderWidth={2}
+          />
           <View style={styles.userInfo}>
             <Text style={styles.welcomeSub}>Welcome back,</Text>
             <View style={styles.nameRow}>

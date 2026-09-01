@@ -161,6 +161,7 @@ class GoogleAuthRequest(BaseModel):
 class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
     avatar_id: Optional[str] = None
+    avatar_url: Optional[str] = None
     board_theme: Optional[str] = None
     piece_theme: Optional[str] = None
     difficulty: Optional[str] = None
@@ -474,6 +475,50 @@ async def update_profile(req: UserProfileUpdate, current_user: Dict[str, Any] = 
         
     updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     return updated or {"success": True}
+
+
+class AvatarUpload(BaseModel):
+    image: str  # data URL (data:image/...;base64,...) or raw base64 string
+
+ALLOWED_AVATAR_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_AVATAR_BYTES = 3 * 1024 * 1024  # 3MB decoded
+
+
+@api_router.post("/auth/avatar")
+async def upload_avatar(req: AvatarUpload, current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Store a user-uploaded profile picture as a base64 data URL on the user doc."""
+    import base64 as _base64
+    import re as _re
+
+    raw = (req.image or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="No image provided.")
+
+    mime = "image/jpeg"
+    b64 = raw
+    if raw.startswith("data:"):
+        header, _, b64 = raw.partition(",")
+        m = _re.match(r"data:([^;]+);base64", header)
+        if m:
+            mime = m.group(1).lower()
+
+    if mime not in ALLOWED_AVATAR_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image format. Please use JPG, PNG, WEBP or GIF.",
+        )
+
+    try:
+        decoded = _base64.b64decode(b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image data.")
+
+    if len(decoded) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=400, detail="Image too large. Maximum size is 3MB.")
+
+    data_url = f"data:{mime};base64,{_base64.b64encode(decoded).decode()}"
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"avatar_url": data_url}})
+    return {"avatar_url": data_url}
 
 # --- Game Recording & Stats Routes ---
 @api_router.post("/games/record")

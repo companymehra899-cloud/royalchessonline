@@ -14,6 +14,7 @@ export interface UserProfile {
   draws: number;
   puzzles_solved?: number;
   avatar_id?: string;
+  avatar_url?: string;
   joined_date?: string;
   is_guest?: boolean;
   board_theme?: string;
