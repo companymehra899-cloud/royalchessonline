@@ -165,14 +165,21 @@ export const GameChat: React.FC<GameChatProps> = ({ roomCode, userId, token }) =
             style={styles.kav}
           >
             <View style={styles.sheet}>
+              {/* Grabber handle */}
+              <View style={styles.grabberWrap}>
+                <View style={styles.grabber} />
+              </View>
+
               {/* Header */}
               <View style={styles.sheetHeader}>
                 <View style={styles.headerLeft}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.gold} />
+                  <View style={styles.headerIconWrap}>
+                    <MaterialCommunityIcons name="message-text-outline" size={18} color={colors.gold} />
+                  </View>
                   <Text style={styles.headerTitle}>Match Chat</Text>
                 </View>
                 <TouchableOpacity onPress={closeChat} style={styles.closeBtn} testID="game-chat-close">
-                  <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+                  <MaterialCommunityIcons name="close" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -196,30 +203,32 @@ export const GameChat: React.FC<GameChatProps> = ({ roomCode, userId, token }) =
 
               {/* Input Row */}
               <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type a message..."
-                  placeholderTextColor={colors.textTertiary}
-                  value={draft}
-                  onChangeText={setDraft}
-                  maxLength={500}
-                  multiline
-                  testID="game-chat-input"
-                  onSubmitEditing={sendMessage}
-                  returnKeyType="send"
-                />
-                <TouchableOpacity
-                  style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
-                  onPress={sendMessage}
-                  disabled={!draft.trim() || sending}
-                  testID="game-chat-send"
-                >
-                  {sending ? (
-                    <ActivityIndicator color="#0b0e14" size="small" />
-                  ) : (
-                    <MaterialCommunityIcons name="send" size={20} color="#0b0e14" />
-                  )}
-                </TouchableOpacity>
+                <View style={styles.inputPill}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Type a message..."
+                    placeholderTextColor={colors.textTertiary}
+                    value={draft}
+                    onChangeText={setDraft}
+                    maxLength={500}
+                    multiline
+                    testID="game-chat-input"
+                    onSubmitEditing={sendMessage}
+                    returnKeyType="send"
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
+                    onPress={sendMessage}
+                    disabled={!draft.trim() || sending}
+                    testID="game-chat-send"
+                  >
+                    {sending ? (
+                      <ActivityIndicator color="#0b0e14" size="small" />
+                    ) : (
+                      <MaterialCommunityIcons name="send" size={18} color="#0b0e14" />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -275,19 +284,37 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1.5,
-    borderColor: colors.gold,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderColor: colors.borderLight,
     height: '70%',
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  grabberWrap: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  grabber: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.gold,
+    opacity: 0.85,
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -295,15 +322,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '800',
-    marginLeft: 8,
+    marginLeft: 10,
     letterSpacing: 0.5,
   },
   closeBtn: {
-    padding: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     flex: 1,
@@ -368,36 +408,43 @@ const styles = StyleSheet.create({
     color: 'rgba(11,14,20,0.6)',
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 10,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  input: {
-    flex: 1,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 20,
+  inputPill: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#0e1119',
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     color: colors.textPrimary,
     fontSize: 14,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 9,
+    paddingBottom: 9,
     maxHeight: 100,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   sendBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
 });
