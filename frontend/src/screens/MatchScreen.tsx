@@ -288,7 +288,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
             {isAiThinking && (
               <Text style={styles.thinkingText}>Thinking move...</Text>
             )}
-            <CapturedPieces pieces={capturedPieces.b} color="w" size={15} />
+            <CapturedPieces pieces={capturedPieces.b} color="w" size={20} />
           </View>
         </View>
         <View style={styles.timerBadge}>

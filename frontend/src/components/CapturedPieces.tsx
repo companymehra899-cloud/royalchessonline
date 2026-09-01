@@ -19,12 +19,12 @@ const PIECE_ICON: Record<string, string> = {
   k: 'chess-king',
 };
 
-// Sort by value so the tray reads consistently (pawns first, queen last).
+// Sort by value so the row reads consistently (pawns first, queen last).
 const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
-export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ pieces, color, size = 16 }) => {
+export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ pieces, color, size = 20 }) => {
   const list = Array.isArray(pieces) ? pieces : [];
-  if (list.length === 0) return <View style={[styles.container, { minHeight: 0 }]} />;
+  if (list.length === 0) return null;
 
   const sorted = [...list].sort((a, b) => PIECE_VALUE[a] - PIECE_VALUE[b]);
   const iconColor = color === 'w' ? '#F0F0F0' : '#4a4a4a';
@@ -49,12 +49,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    minHeight: 20,
-    marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginTop: 3,
   },
   piece: {
     marginRight: 1,
