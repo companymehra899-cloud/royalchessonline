@@ -7,11 +7,17 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { GameHistoryItem } from '../types/chess';
+import { AVATARS, getAvatar } from '../utils/avatars';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -21,10 +27,15 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSettings }) => {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout, updateProfile, refreshUser } = useAuth();
   const [historyModal, setHistoryModal] = useState(false);
   const [achievementsModal, setAchievementsModal] = useState(false);
   const [gameHistory, setGameHistory] = useState<GameHistoryItem[]>([]);
+  const [avatarModal, setAvatarModal] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const currentAvatar = getAvatar(user?.avatar_id);
 
   const rating = user?.rating || 1200;
   const bestRating = user?.best_rating || 1200;
@@ -55,6 +66,55 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
     }
   };
 
+  // Pick an image from the device gallery and upload it as the user's profile
+  // picture. On native platforms we request library permission first.
+  const pickAndUploadAvatar = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Permission needed', 'Please allow gallery access to upload a photo.');
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      const mime = asset.mimeType || 'image/jpeg';
+      const dataUrl = `data:${mime};base64,${asset.base64}`;
+
+      setUploadingAvatar(true);
+      const res = await fetch(`${BACKEND_URL}/api/auth/avatar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (res.ok) {
+        await refreshUser();
+        setAvatarModal(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        Alert.alert('Upload failed', data.detail || 'Could not upload image. Please try a smaller photo.');
+      }
+    } catch (e) {
+      console.log('Avatar upload error:', e);
+      Alert.alert('Upload failed', 'Something went wrong. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -72,8 +132,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
         {/* Big Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarBig}>
-            <MaterialCommunityIcons name="chess-pawn" size={54} color={colors.gold} />
-            <TouchableOpacity style={styles.editAvatarBtn}>
+            {user?.avatar_url ? (
+              <Image
+                source={{ uri: user.avatar_url }}
+                style={styles.avatarBigImg}
+                contentFit="cover"
+              />
+            ) : (
+              <MaterialCommunityIcons name={currentAvatar.icon} size={54} color={currentAvatar.color} />
+            )}
+            <TouchableOpacity style={styles.editAvatarBtn} onPress={() => setAvatarModal(true)}>
               <MaterialCommunityIcons name="pencil" size={14} color="#0b0e14" />
             </TouchableOpacity>
           </View>
@@ -247,6 +315,68 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onOpenSett
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Avatar Picker Modal */}
+      <Modal visible={avatarModal} transparent animationType="fade" onRequestClose={() => setAvatarModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalHeading}>Choose Avatar</Text>
+
+            <TouchableOpacity
+              style={styles.uploadBtn}
+              onPress={pickAndUploadAvatar}
+              disabled={uploadingAvatar || savingAvatar}
+              activeOpacity={0.8}
+            >
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#0b0e14" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="image-plus" size={20} color="#0b0e14" />
+                  <Text style={styles.uploadBtnText}>Upload from Gallery</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+            <Text style={styles.dividerLabel}>OR PICK AN AVATAR</Text>
+
+            <View style={styles.avatarGrid}>
+              {AVATARS.map((a) => (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[
+                    styles.avatarOption,
+                    currentAvatar.id === a.id && styles.avatarOptionSelected,
+                  ]}
+                  disabled={savingAvatar}
+                  onPress={async () => {
+                    setSavingAvatar(true);
+                    await updateProfile({ avatar_id: a.id });
+                    setSavingAvatar(false);
+                    setAvatarModal(false);
+                  }}
+                >
+                  <View style={[styles.avatarOptionCircle, { borderColor: a.color }]}>
+                    <MaterialCommunityIcons name={a.icon} size={32} color={a.color} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.avatarOptionLabel,
+                      currentAvatar.id === a.id && { color: colors.gold },
+                    ]}
+                  >
+                    {a.label}
+                  </Text>
+                  {currentAvatar.id === a.id && (
+                    <MaterialCommunityIcons name="check" size={16} color={colors.gold} style={styles.avatarOptionCheck} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -295,6 +425,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarBigImg: {
+    width: '100%',
+    height: '100%',
   },
   editAvatarBtn: {
     position: 'absolute',
@@ -471,5 +606,91 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+  },
+  modalHeading: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gold,
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginBottom: 14,
+  },
+  uploadBtnText: {
+    color: '#0b0e14',
+    fontSize: 14,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#2a3346',
+    marginBottom: 10,
+  },
+  dividerLabel: {
+    color: colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  avatarOption: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    position: 'relative',
+  },
+  avatarOptionSelected: {
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+  },
+  avatarOptionCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1b2233',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    marginBottom: 6,
+  },
+  avatarOptionLabel: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  avatarOptionCheck: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
   },
 });

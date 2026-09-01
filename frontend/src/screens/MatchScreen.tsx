@@ -16,6 +16,7 @@ import { GameChat } from '../components/GameChat';
 import { useAuth } from '../context/AuthContext';
 import { useGameSettings } from '../context/GameSettingsContext';
 import { soundManager } from '../utils/audio';
+import { UserAvatar } from '../components/UserAvatar';
 import { GameMode, AIDifficulty } from '../types/chess';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -343,9 +344,14 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       {/* Player (You) Bar */}
       <View style={styles.playerBar}>
         <View style={styles.playerInfoRow}>
-          <View style={[styles.avatarMini, { borderColor: colors.gold }]}>
-            <MaterialCommunityIcons name="chess-pawn" size={20} color={colors.gold} />
-          </View>
+          <UserAvatar
+            avatarId={user?.avatar_id}
+            avatarUrl={user?.avatar_url}
+            size={38}
+            iconSize={20}
+            borderColor={colors.gold}
+            borderWidth={1.5}
+          />
           <View style={styles.playerNameCol}>
             <View style={styles.nameStatusRow}>
               <Text style={styles.playerName}>You</Text>

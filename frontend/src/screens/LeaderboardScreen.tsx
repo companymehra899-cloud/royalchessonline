@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { UserProfile } from '../types/chess';
+import { UserAvatar } from '../components/UserAvatar';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -77,9 +78,15 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, on
                   )}
                 </View>
 
-                <View style={styles.avatarMini}>
-                  <MaterialCommunityIcons name="chess-knight" size={20} color={colors.gold} />
-                </View>
+                <UserAvatar
+                  avatarId={item.avatar_id}
+                  avatarUrl={item.avatar_url}
+                  size={38}
+                  iconSize={20}
+                  borderColor={colors.borderLight}
+                  borderWidth={1}
+                  style={{ marginHorizontal: 12 }}
+                />
 
                 <View style={styles.playerInfo}>
                   <Text style={styles.playerName}>{item.username}</Text>
