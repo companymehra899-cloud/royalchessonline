@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: royal-chess-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - chess-network
+    healthcheck:
+      test: echo 'db.adminCommand("ping")' | mongosh localhost:27017/test
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: royal-chess-backend
+    environment:
+      MONGO_URL: mongodb://admin:password@mongodb:27017
+      DB_NAME: royal_chess_db
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-min-32-chars-required-here}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@chess.local}
+      DEBUG: ${DEBUG:-False}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - chess-network
+    volumes:
+      - ./backend:/app/backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+
+networks:
+  chess-network:
+    driver: bridge
