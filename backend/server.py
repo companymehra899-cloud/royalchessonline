@@ -57,8 +57,6 @@ LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
 LEAGUE_CLAIM_URL = os.environ.get('LEAGUE_CLAIM_URL', '') or ''
 PRIZE_TABLE = [
     {"rank": 1, "prize": 500},
-    {"rank": 2, "prize": 300},
-    {"rank": 3, "prize": 200},
 ]
 
 # Simple in-memory rate limiter (best-effort, single-process)
@@ -1041,7 +1039,7 @@ async def ensure_active_league():
     return {k: v for k, v in doc.items() if k != "_id"}
 
 async def complete_league(league):
-    """Freeze the leaderboard, compute Top 3 winners + prizes. NO wallet/payment (external claim)."""
+    """Freeze the leaderboard, compute winners + prizes (only ranks with a prize). NO wallet/payment (external claim)."""
     league_id = league["id"]
     top = await db.league_participants.find(
         {"league_id": league_id}
@@ -1051,6 +1049,8 @@ async def complete_league(league):
     for idx, p in enumerate(top):
         rank = idx + 1
         prize = next((x["prize"] for x in PRIZE_TABLE if x["rank"] == rank), 0)
+        if prize <= 0:
+            continue
         winners.append({
             "rank": rank,
             "user_id": p["user_id"],

@@ -100,7 +100,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
           <View style={styles.onlineTextCol}>
             <Text style={styles.onlineHeroTitle}>CHESS LEAGUE</Text>
-            <Text style={styles.onlineHeroSub}>3-day season · Top 3 win ₹500/₹300/₹200</Text>
+            <Text style={styles.onlineHeroSub}>3-day season · 1st prize ₹500</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={28} color={colors.gold} />
         </TouchableOpacity>
