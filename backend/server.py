@@ -42,7 +42,7 @@ if not JWT_SECRET or len(JWT_SECRET) < 32:
         "32 characters long. Refusing to start with a missing or weak secret."
     )
 
-# --- League / Rewards configuration (prizes claimed EXTERNALLY, no in-app payment) ---
+# --- League / Rewards configuration (badge rewards, no in-app payment) ---
 # Admin emails come from the environment (comma-separated), never from source code.
 # A user whose email is listed here is granted the 'admin' role on registration/login.
 _admin_env = os.environ.get('ADMIN_EMAILS', '')
@@ -55,8 +55,17 @@ LEAGUE_DURATION_DAYS = 3
 LEAGUE_MIN_PLAYERS = 200
 LEAGUE_POINTS = {"win": 10, "draw": 4, "loss": 0}
 LEAGUE_CLAIM_URL = os.environ.get('LEAGUE_CLAIM_URL', '') or ''
-PRIZE_TABLE = [
-    {"rank": 1, "prize": 500},
+BADGE_TABLE = [
+    {"rank": 1, "badges": 1000},
+    {"rank": 2, "badges": 500},
+    {"rank": 3, "badges": 500},
+    {"rank": 4, "badges": 500},
+    {"rank": 5, "badges": 500},
+    {"rank": 6, "badges": 500},
+    {"rank": 7, "badges": 500},
+    {"rank": 8, "badges": 500},
+    {"rank": 9, "badges": 500},
+    {"rank": 10, "badges": 500},
 ]
 
 # Simple in-memory rate limiter (best-effort, single-process)
@@ -211,7 +220,7 @@ class CompletePuzzleRequest(BaseModel):
 class SendChatRequest(BaseModel):
     text: str
 
-# --- League configuration note: prizes are claimed EXTERNALLY (no in-app wallet/payment) ---
+# --- League configuration note: badge rewards (no in-app wallet/payment) ---
 
 # --- Helper function to initialize demo user if not exists ---
 @app.on_event("startup")
@@ -1045,7 +1054,7 @@ async def get_status_checks():
     return [StatusCheck(**status_check) for status_check in status_checks]
 
 # ==========================================================================
-#  ROYAL CHESS LEAGUE  (points-based; prizes claimed EXTERNALLY, no in-app payment)
+#  ROYAL CHESS LEAGUE  (points-based; badge rewards, no in-app payment)
 # ==========================================================================
 
 def _now():
@@ -1074,7 +1083,7 @@ async def ensure_active_league():
         "start_date": now.isoformat(),
         "end_date": (now + timedelta(days=LEAGUE_DURATION_DAYS)).isoformat(),
         "min_players": LEAGUE_MIN_PLAYERS,
-        "prizes": PRIZE_TABLE,
+        "badges": BADGE_TABLE,
         "winners": [],
         "created_at": now.isoformat(),
         "completed_at": None,
@@ -1084,17 +1093,17 @@ async def ensure_active_league():
     return {k: v for k, v in doc.items() if k != "_id"}
 
 async def complete_league(league):
-    """Freeze the leaderboard, compute winners + prizes (only ranks with a prize). NO wallet/payment (external claim)."""
+    """Freeze the leaderboard, compute winners + badge rewards (only ranks with a badge). NO wallet/payment."""
     league_id = league["id"]
     top = await db.league_participants.find(
         {"league_id": league_id}
-    ).sort([("points", -1), ("wins", -1)]).limit(3).to_list(3)
+    ).sort([("points", -1), ("wins", -1)]).limit(10).to_list(10)
 
     winners = []
     for idx, p in enumerate(top):
         rank = idx + 1
-        prize = next((x["prize"] for x in PRIZE_TABLE if x["rank"] == rank), 0)
-        if prize <= 0:
+        badges = next((x["badges"] for x in BADGE_TABLE if x["rank"] == rank), 0)
+        if badges <= 0:
             continue
         winners.append({
             "rank": rank,
@@ -1102,8 +1111,7 @@ async def complete_league(league):
             "username": p.get("username", "Player"),
             "points": p.get("points", 0),
             "wins": p.get("wins", 0),
-            "prize": prize,
-            "claim_url": LEAGUE_CLAIM_URL,
+            "badges": badges,
         })
 
     await db.leagues.update_one(
@@ -1243,7 +1251,7 @@ async def league_current(current_user: Optional[Dict[str, Any]] = Depends(get_cu
         "min_players": LEAGUE_MIN_PLAYERS,
         "time_left_seconds": time_left,
         "points_rule": LEAGUE_POINTS,
-        "prizes": PRIZE_TABLE,
+        "badges": BADGE_TABLE,
         "claim_url": LEAGUE_CLAIM_URL,
         "joined": joined,
         "my_rank": my_rank,
@@ -1308,7 +1316,7 @@ async def league_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     await check_and_rotate_leagues()
     league = await ensure_active_league()
     rank, me = await _get_my_rank(league["id"], current_user["id"])
-    # Any prize the user won in the most recent completed league
+    # Any badges the user won in the most recent completed league
     winnings = await league_my_winnings(current_user)
     return {
         "joined": me is not None,
@@ -1319,7 +1327,7 @@ async def league_me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 @api_router.get("/league/my-winnings")
 async def league_my_winnings(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Returns any Top-3 prizes the user has won in completed leagues, with an external claim message."""
+    """Returns any Top-10 badge rewards the user has won in completed leagues."""
     uid = current_user["id"]
     cursor = db.leagues.find(
         {"status": "completed", "winners.user_id": uid}, {"_id": 0}
@@ -1329,17 +1337,16 @@ async def league_my_winnings(current_user: Dict[str, Any] = Depends(get_current_
     for lg in completed:
         for w in lg.get("winners", []):
             if w.get("user_id") == uid:
-                prize = w.get("prize", 0)
+                badges = w.get("badges", 0)
                 winnings.append({
                     "league_id": lg["id"],
                     "league_title": lg.get("title", "Royal Chess League"),
                     "rank": w.get("rank"),
                     "points": w.get("points", 0),
-                    "prize": prize,
+                    "badges": badges,
                     "completed_at": lg.get("completed_at"),
                     "message": (
-                        f"Congratulations! You won \u20b9{prize}. "
-                        f"Please complete your verification on {LEAGUE_CLAIM_URL or 'the in-app message box'} to claim your prize."
+                        f"Congratulations! You won {badges} badges."
                     ),
                 })
     return {"winnings": winnings}

@@ -1,26 +1,49 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
-
-// Avatar definitions — each maps an avatar_id to an icon and label.
-// Used in ProfileScreen (picker), MatchScreen (player avatar),
-// HomeScreen (user card), and LeaderboardScreen (player avatars).
+// Avatar definitions — each maps an avatar_id to an illustrated character
+// portrait image URL (DiceBear "adventurer" style).
+// Used in ProfileScreen (picker), MatchScreen, HomeScreen, and LeaderboardScreen.
 export interface AvatarDef {
   id: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  color: string;
+  image: string;
+}
+
+const DICEBEAR = 'https://api.dicebear.com/9.x/adventurer/png';
+const DICEBEAR_LORELEI = 'https://api.dicebear.com/9.x/lorelei/png';
+
+function avatarUrl(seed: string): string {
+  return `${DICEBEAR}?seed=${seed}&size=256&radius=12`;
+}
+
+function realisticUrl(seed: string): string {
+  return `${DICEBEAR_LORELEI}?seed=${seed}&size=256&radius=12`;
 }
 
 export const AVATARS: AvatarDef[] = [
-  { id: 'boy', icon: 'face-man', label: 'Boy', color: '#5b9bd5' },
-  { id: 'girl', icon: 'face-woman', label: 'Girl', color: '#e875a0' },
-  { id: 'uncle', icon: 'face-man-profile', label: 'Uncle', color: '#d4a574' },
-  { id: 'lady', icon: 'face-woman-profile', label: 'Lady', color: '#c084d4' },
-  { id: 'king_gold', icon: 'chess-king', label: 'King', color: colors.gold },
-  { id: 'queen_gold', icon: 'chess-queen', label: 'Queen', color: colors.gold },
-  { id: 'knight_gold', icon: 'chess-knight', label: 'Knight', color: colors.gold },
-  { id: 'rook_gold', icon: 'chess-rook', label: 'Rook', color: colors.gold },
-  { id: 'pawn_gold', icon: 'chess-pawn', label: 'Pawn', color: colors.gold },
+  { id: 'warrior',     label: 'Warrior',     image: avatarUrl('Warrior') },
+  { id: 'mage',        label: 'Mage',        image: avatarUrl('Mage42') },
+  { id: 'ranger',      label: 'Ranger',      image: avatarUrl('Ranger') },
+  { id: 'knight',      label: 'Knight',      image: avatarUrl('Knight') },
+  { id: 'archer',      label: 'Archer',      image: avatarUrl('Archer') },
+  { id: 'rogue',       label: 'Rogue',       image: avatarUrl('Rogue') },
+  { id: 'paladin',     label: 'Paladin',     image: avatarUrl('Paladin') },
+  { id: 'sorcerer',    label: 'Sorcerer',    image: avatarUrl('Sorcerer') },
+  { id: 'barbarian',   label: 'Barbarian',   image: avatarUrl('Barbarian') },
+  { id: 'druid',       label: 'Druid',       image: avatarUrl('Druid') },
+  { id: 'monk',        label: 'Monk',        image: avatarUrl('Monk') },
+  { id: 'bard',        label: 'Bard',        image: avatarUrl('Bard') },
+  { id: 'necromancer', label: 'Necromancer', image: avatarUrl('Necromancer') },
+  { id: 'assassin',    label: 'Assassin',    image: avatarUrl('Assassin') },
+  { id: 'templar',     label: 'Templar',     image: avatarUrl('Templar') },
+  { id: 'hunter',      label: 'Hunter',      image: avatarUrl('Hunter') },
+  { id: 'sage',        label: 'Sage',        image: avatarUrl('Sage') },
+  { id: 'champion',    label: 'Champion',    image: avatarUrl('Champion') },
+  // Realistic male portraits — diverse ethnicities
+  { id: 'indian_boy',      label: 'Indian Boy',      image: realisticUrl('Arjun') },
+  { id: 'indian_boy_2',    label: 'Indian Boy 2',    image: realisticUrl('Rahul') },
+  { id: 'african_boy',     label: 'African Boy',     image: realisticUrl('Kwame') },
+  { id: 'american_boy',    label: 'American',       image: realisticUrl('Tyler') },
+  { id: 'russian_boy',     label: 'Russian',        image: realisticUrl('Dmitri') },
+  { id: 'european_boy',    label: 'European',       image: realisticUrl('Hans') },
 ];
 
 const AVATAR_MAP: Record<string, AvatarDef> = AVATARS.reduce(
@@ -28,6 +51,8 @@ const AVATAR_MAP: Record<string, AvatarDef> = AVATARS.reduce(
   {}
 );
 
+const DEFAULT_AVATAR: AvatarDef = AVATARS[0];
+
 export function getAvatar(avatarId?: string): AvatarDef {
-  return AVATAR_MAP[avatarId || 'pawn_gold'] || AVATAR_MAP['pawn_gold'];
+  return AVATAR_MAP[avatarId || ''] || DEFAULT_AVATAR;
 }
