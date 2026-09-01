@@ -7,7 +7,6 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  Linking,
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,7 +35,7 @@ interface LeaderRow {
 interface Winning {
   league_id: string;
   rank: number;
-  prize: number;
+  badges: number;
   points: number;
   message: string;
 }
@@ -142,17 +141,10 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
     }
   };
 
-  const handleClaim = (url: string) => {
-    const full = url.startsWith('http') ? url : `https://${url}`;
-    Linking.openURL(full).catch(() => {
-      Alert.alert('Claim your prize', `Visit ${url} to complete verification and claim your prize.`);
-    });
-  };
-
   const handleAdminForceComplete = () => {
     Alert.alert(
       'End season now?',
-      'This will freeze the current league, award Top 3, and start a new one. (Admin/testing)',
+      'This will freeze the current league, award badges to Top 10, and start a new one. (Admin/testing)',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -184,7 +176,7 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
   const myPoints = current?.my_points || 0;
   const participantCount = current?.participant_count || 0;
   const minPlayers = current?.min_players || 0;
-  const prizes: { rank: number; prize: number }[] = current?.prizes || [];
+  const badgeTable: { rank: number; badges: number }[] = current?.badges || [];
   const podium = leaderboard.slice(0, 3);
 
   if (loading) {
@@ -230,14 +222,10 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
               <Text style={styles.winMedal}>{MEDALS[w.rank] || '🏆'}</Text>
               <Text style={styles.winTitle}>Congratulations!</Text>
             </View>
-            <Text style={styles.winPrize}>You won ₹{w.prize}</Text>
+            <Text style={styles.winPrize}>You won {w.badges} badges 🏅</Text>
             <Text style={styles.winMsg}>
-              Please complete your verification on our official message box to claim your prize.
+              Your badges have been credited to your account.
             </Text>
-            <TouchableOpacity style={styles.claimBtn} onPress={() => handleClaim('yourdomain.com')} testID="league-claim-btn">
-              <MaterialCommunityIcons name="shield-check" size={18} color="#0b0e14" />
-              <Text style={styles.claimBtnText}>Complete Verification (yourdomain.com)</Text>
-            </TouchableOpacity>
           </View>
         ))}
 
@@ -278,8 +266,8 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
             </View>
             <View style={styles.statBox}>
               <MaterialCommunityIcons name="medal" size={20} color={colors.gold} />
-              <Text style={styles.statValue}>Top 3</Text>
-              <Text style={styles.statLabel}>Win Prizes</Text>
+              <Text style={styles.statValue}>Top 10</Text>
+              <Text style={styles.statLabel}>Win Badges</Text>
             </View>
           </View>
 
@@ -290,13 +278,14 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
             <Text style={styles.ruleChipLoss}>Loss 0</Text>
           </View>
 
-          {/* Prize table */}
+          {/* Badge reward table */}
+          <Text style={styles.badgeSectionTitle}>BADGE REWARDS</Text>
           <View style={styles.prizeRow}>
-            {prizes.map((p) => (
+            {badgeTable.map((p) => (
               <View key={p.rank} style={styles.prizeBox}>
-                <Text style={styles.prizeMedal}>{MEDALS[p.rank]}</Text>
-                <Text style={styles.prizeAmount}>₹{p.prize}</Text>
-                <Text style={styles.prizeRank}>Rank {p.rank}</Text>
+                <Text style={styles.prizeMedal}>{MEDALS[p.rank] || `#${p.rank}`}</Text>
+                <Text style={styles.prizeAmount}>🏅 {p.badges}</Text>
+                <Text style={styles.prizeRank}>#{p.rank}</Text>
               </View>
             ))}
           </View>
@@ -328,7 +317,7 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
             </TouchableOpacity>
           )}
           <Text style={styles.claimNote}>
-            Prizes are verified & paid outside the app. Winners get instructions to claim.
+            Top 10 players win badges. 1st place: 1000 badges · 2nd–10th: 500 badges each.
           </Text>
         </View>
 
@@ -387,11 +376,11 @@ export const LeagueScreen: React.FC<LeagueScreenProps> = ({ onBack, onOpenSettin
               <Text style={styles.adminTitle}>ADMIN</Text>
             </View>
             <Text style={styles.adminNote}>
-              KYC verification and UPI payouts are handled externally. Use this only to finalize a season.
+              Use this to finalize a season and award badges to the top 10 players.
             </Text>
             <TouchableOpacity style={styles.adminBtn} onPress={handleAdminForceComplete} testID="league-admin-complete">
               <MaterialCommunityIcons name="flag-checkered" size={18} color={colors.danger} />
-              <Text style={styles.adminBtnText}>End Season Now &amp; Distribute Prizes</Text>
+              <Text style={styles.adminBtnText}>End Season Now &amp; Award Badges</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -515,20 +504,29 @@ const styles = StyleSheet.create({
     color: colors.textTertiary, backgroundColor: '#171d2a', borderColor: colors.border, borderWidth: 1,
     fontSize: 12, fontWeight: '700', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, overflow: 'hidden',
   },
-  prizeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+  badgeSectionTitle: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  prizeRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 0 },
   prizeBox: {
-    flex: 1,
+    width: '19%',
     alignItems: 'center',
     backgroundColor: '#141b28',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginHorizontal: 4,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginBottom: 8,
+    marginHorizontal: '0.5%',
     borderWidth: 1,
     borderColor: colors.border,
   },
-  prizeMedal: { fontSize: 22 },
-  prizeAmount: { color: colors.gold, fontSize: 16, fontWeight: '900', marginTop: 4 },
-  prizeRank: { color: colors.textTertiary, fontSize: 10, marginTop: 2 },
+  prizeMedal: { fontSize: 18 },
+  prizeAmount: { color: colors.gold, fontSize: 13, fontWeight: '900', marginTop: 4 },
+  prizeRank: { color: colors.textTertiary, fontSize: 9, marginTop: 2 },
   joinBtn: {
     flexDirection: 'row',
     alignItems: 'center',

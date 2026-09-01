@@ -106,7 +106,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
           <View style={styles.onlineTextCol}>
             <Text style={styles.onlineHeroTitle}>CHESS LEAGUE</Text>
-            <Text style={styles.onlineHeroSub}>3-day season · 1st prize ₹500</Text>
+            <Text style={styles.onlineHeroSub}>3-day season · 1st: 1000 badges</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={28} color={colors.gold} />
         </TouchableOpacity>
