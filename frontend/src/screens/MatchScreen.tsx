@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +12,8 @@ import { colors } from '../theme/colors';
 import { ChessBoard } from '../components/ChessBoard';
 import { GameOverModal } from '../components/GameOverModal';
 import { GameChat } from '../components/GameChat';
+import { CapturedPieces } from '../components/CapturedPieces';
+import { ConfirmBackModal } from '../components/ConfirmBackModal';
 import { useAuth } from '../context/AuthContext';
 import { useGameSettings } from '../context/GameSettingsContext';
 import { soundManager } from '../utils/audio';
@@ -57,6 +58,13 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
 
   // Move confirm pending move
   const [pendingConfirmMove, setPendingConfirmMove] = useState<{ from: string; to: string; promotion?: string } | null>(null);
+
+  // Captured pieces, keyed by the color that captured them.
+  // capturedPieces.white = black pieces taken by the player; capturedPieces.black = white pieces taken by the opponent.
+  const [capturedPieces, setCapturedPieces] = useState<{ white: string[]; black: string[] }>({ white: [], black: [] });
+
+  // Back-navigation confirmation popup
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
 
   const timerRef = useRef<any>(null);
 
@@ -150,6 +158,15 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
       setFen(game.fen());
       setMoveHistory((prev) => [...prev, { from: mv.from, to: mv.to, san: moveResult.san }]);
 
+      // Track captured pieces for the captured-pieces tray.
+      if (moveResult.captured) {
+        const mover = moveResult.color as 'w' | 'b';
+        setCapturedPieces((prev) => ({
+          ...prev,
+          [mover]: [...prev[mover], moveResult.captured as string],
+        }));
+      }
+
       // Audio / Haptic feedback
       if (moveResult.captured) {
         soundManager.playCapture();
@@ -214,33 +231,6 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     executeMove(mv, false);
   };
 
-  const handleUndo = () => {
-    if (moveHistory.length === 0 || isAiThinking) return;
-    // If vs computer, undo two moves (player + AI)
-    if (mode === 'computer') {
-      game.undo();
-      game.undo();
-      setMoveHistory((prev) => prev.slice(0, -2));
-    } else {
-      game.undo();
-      setMoveHistory((prev) => prev.slice(0, -1));
-    }
-    setFen(game.fen());
-    setLastMove(null);
-    soundManager.playMove();
-  };
-
-  const handleResign = () => {
-    Alert.alert('Resign Game', 'Are you sure you want to resign?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Resign',
-        style: 'destructive',
-        onPress: () => finishGame('loss', 'Resignation'),
-      },
-    ]);
-  };
-
   const restartGame = () => {
     const newG = new Chess();
     setGame(newG);
@@ -251,6 +241,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     setOpponentTime(10 * 60);
     setGameOver(false);
     setPendingConfirmMove(null);
+    setCapturedPieces({ white: [], black: [] });
   };
 
   const formatTime = (secs: number) => {
@@ -270,7 +261,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} testID="match-back-button" onPress={onBack}>
+        <TouchableOpacity style={styles.backBtn} testID="match-back-button" onPress={() => setShowBackConfirm(true)}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>vs {opponentTitle}</Text>
@@ -297,6 +288,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
             {isAiThinking && (
               <Text style={styles.thinkingText}>Thinking move...</Text>
             )}
+            <CapturedPieces pieces={capturedPieces.black} color="w" size={15} />
           </View>
         </View>
         <View style={styles.timerBadge}>
@@ -358,25 +350,13 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
               <View style={styles.greenDot} />
             </View>
             <Text style={styles.userRatingSub}>{user?.rating || 1200}</Text>
+            <CapturedPieces pieces={capturedPieces.white} color="b" size={15} />
           </View>
         </View>
         <View style={[styles.timerBadge, game.turn() === 'w' && styles.timerBadgeActive]}>
           <MaterialCommunityIcons name="clock-outline" size={16} color={colors.gold} />
           <Text style={[styles.timerText, { color: colors.textPrimary }]}>{formatTime(playerTime)}</Text>
         </View>
-      </View>
-
-      {/* Bottom Action Tray */}
-      <View style={styles.actionTray}>
-        <TouchableOpacity style={styles.actionBtn} testID="undo-button" onPress={handleUndo} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="undo" size={20} color={colors.textSecondary} />
-          <Text style={styles.actionBtnText}>UNDO</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionBtn} testID="resign-button" onPress={handleResign} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="flag-outline" size={20} color={colors.danger} />
-          <Text style={[styles.actionBtnText, { color: colors.danger }]}>RESIGN</Text>
-        </TouchableOpacity>
       </View>
 
       {/* In-Game Chat (online matches only) */}
@@ -394,6 +374,16 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
         movesCount={moveHistory.length}
         onPlayAgain={restartGame}
         onHome={onBack}
+      />
+
+      {/* Back Navigation Confirmation */}
+      <ConfirmBackModal
+        visible={showBackConfirm}
+        onCancel={() => setShowBackConfirm(false)}
+        onConfirm={() => {
+          setShowBackConfirm(false);
+          onBack();
+        }}
       />
     </View>
   );
@@ -534,31 +524,5 @@ const styles = StyleSheet.create({
     color: '#0b0e14',
     fontSize: 12,
     fontWeight: '700',
-  },
-  actionTray: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#161d2b',
-    marginTop: 'auto',
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionBtnText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginLeft: 6,
   },
 });
