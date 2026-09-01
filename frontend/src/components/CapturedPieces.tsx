@@ -23,9 +23,10 @@ const PIECE_ICON: Record<string, string> = {
 const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ pieces, color, size = 16 }) => {
-  if (pieces.length === 0) return <View style={styles.container} />;
+  const list = Array.isArray(pieces) ? pieces : [];
+  if (list.length === 0) return <View style={styles.container} />;
 
-  const sorted = [...pieces].sort((a, b) => PIECE_VALUE[a] - PIECE_VALUE[b]);
+  const sorted = [...list].sort((a, b) => PIECE_VALUE[a] - PIECE_VALUE[b]);
   const iconColor = color === 'w' ? '#E8E8E8' : '#6b7689';
 
   return (
