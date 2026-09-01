@@ -59,9 +59,9 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
   // Move confirm pending move
   const [pendingConfirmMove, setPendingConfirmMove] = useState<{ from: string; to: string; promotion?: string } | null>(null);
 
-  // Captured pieces, keyed by the color that captured them.
-  // capturedPieces.white = black pieces taken by the player; capturedPieces.black = white pieces taken by the opponent.
-  const [capturedPieces, setCapturedPieces] = useState<{ white: string[]; black: string[] }>({ white: [], black: [] });
+  // Captured pieces, keyed by the color that captured them (matches chess.js 'w'/'b').
+  // capturedPieces.w = black pieces taken by the player; capturedPieces.b = white pieces taken by the opponent.
+  const [capturedPieces, setCapturedPieces] = useState<{ w: string[]; b: string[] }>({ w: [], b: [] });
 
   // Back-navigation confirmation popup
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -288,7 +288,7 @@ export const MatchScreen: React.FC<MatchScreenProps> = ({
             {isAiThinking && (
               <Text style={styles.thinkingText}>Thinking move...</Text>
             )}
-            <CapturedPieces pieces={capturedPieces.black} color="w" size={15} />
+            <CapturedPieces pieces={capturedPieces.b} color="w" size={15} />
           </View>
         </View>
         <View style={styles.timerBadge}>
