@@ -8,7 +8,7 @@ import {
   Switch,
   Modal,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { colors, BoardThemeKey } from '../theme/colors';
 import { useGameSettings } from '../context/GameSettingsContext';
 import { AIDifficulty } from '../types/chess';
